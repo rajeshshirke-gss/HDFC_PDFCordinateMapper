@@ -159,9 +159,28 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mj
               <button mat-icon-button type="button" matTooltip="Previous page" (click)="previousPage($event)">
                 <mat-icon>chevron_left</mat-icon>
               </button>
-              <span>Page {{ selectedPageNo() || '-' }}</span>
+              <mat-form-field appearance="outline" class="page-select" style="width: 190px;">
+                <mat-label>Page</mat-label>
+                <mat-select [ngModel]="selectedPageNo()" (ngModelChange)="selectPageFromToolbar($event)">
+                  @for (page of pageStatuses(); track page.pageNo) {
+                    <mat-option [value]="page.pageNo">Page {{ page.pageNo }} - {{ page.fieldCount }} fields</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
               <button mat-icon-button type="button" matTooltip="Next page" (click)="nextPage($event)">
                 <mat-icon>chevron_right</mat-icon>
+              </button>
+              <span class="page-count">{{ selectedPageIndexLabel() }}</span>
+            </div>
+            <div class="zoom-command">
+              <button mat-icon-button type="button" matTooltip="Zoom out" (click)="zoomOut($event)">
+                <mat-icon>remove</mat-icon>
+              </button>
+              <button mat-stroked-button class="zoom-value" type="button" matTooltip="Reset zoom" (click)="resetZoom($event)">
+                {{ zoomPercent() }}%
+              </button>
+              <button mat-icon-button type="button" matTooltip="Zoom in" (click)="zoomIn($event)">
+                <mat-icon>add</mat-icon>
               </button>
             </div>
             <div class="tool-command">
@@ -524,6 +543,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mj
     .command-actions,
     .pdf-toolbar,
     .page-command,
+    .zoom-command,
     .tool-command {
       display: flex;
       align-items: center;
@@ -677,24 +697,23 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mj
 
     .pdf-toolbar {
       justify-content: space-between;
-      min-height: 56px;
-      padding: 8px 12px;
+      min-height: 40px;
+      padding: 4px 10px;
       border-bottom: 1px solid var(--app-grid-border);
-      background: var(--app-surface);
     }
 
     .tool-command mat-form-field {
-      width: 180px;
+      width: 172px;
     }
 
     .tool-command .field-name-input {
-      width: 260px;
+      width: 250px;
     }
 
-    .hint {
-      color: var(--app-muted);
-      font-size: 12px;
-      font-weight: 600;
+    .pdf-toolbar mat-form-field {
+      margin-block: -9px -20px;
+      transform: scale(0.88);
+      transform-origin: left center;
     }
 
     .pdf-stage {
@@ -1124,6 +1143,7 @@ export class TemplateMappingWorkspacePage implements OnInit, AfterViewInit {
   readonly pinnedDock = signal<DockPanelId | null>(null);
   readonly draftRect = signal<CoordinateRect | null>(null);
   readonly pageSize = signal({ width: 780, height: 1103 });
+  readonly zoom = signal(1);
   readonly pdfLoading = signal(false);
   readonly pdfError = signal('');
   readonly saving = signal(false);
@@ -1140,13 +1160,16 @@ export class TemplateMappingWorkspacePage implements OnInit, AfterViewInit {
     const template = this.selectedTemplate();
     if (!template) return [];
     const configuredPages = parsePages(template.mappingPageNumbers);
-    if (configuredPages.length) return configuredPages;
     const pageCount = Number(template.pdfPageCount || 0);
+    if (configuredPages.length) {
+      return pageCount > 0 ? configuredPages.filter((page) => page <= pageCount) : configuredPages;
+    }
     return Array.from({ length: Math.max(0, pageCount) }, (_, index) => index + 1);
   });
   readonly recentFieldNames = computed(() => uniqueFieldNames(this.fields()));
   readonly fieldsForSelectedPage = computed(() => this.fields().filter((field) => field.pageNo === this.selectedPageNo()));
   readonly selectedField = computed(() => this.fields().find((field) => field.fieldUid === this.selectedFieldUid()) ?? null);
+  readonly zoomPercent = computed(() => Math.round(this.zoom() * 100));
   readonly pageStatuses = computed<PageStatus[]>(() => this.mappingPages().map((pageNo) => {
     const pageFields = this.fields().filter((field) => field.pageNo === pageNo);
     const hasIssue = this.validationIssues().some((issue) => issue.pageNo === pageNo);
@@ -1220,6 +1243,10 @@ export class TemplateMappingWorkspacePage implements OnInit, AfterViewInit {
     this.draftRect.set(null);
     this.pointerAction = null;
     this.renderSelectedPage();
+  }
+
+  selectPageFromToolbar(pageNo: number): void {
+    this.selectPage(Number(pageNo));
   }
 
   useFieldName(fieldName: string): void {
@@ -1592,6 +1619,33 @@ export class TemplateMappingWorkspacePage implements OnInit, AfterViewInit {
     if (currentIndex >= 0 && currentIndex < pages.length - 1) this.selectPage(pages[currentIndex + 1]);
   }
 
+  selectedPageIndexLabel(): string {
+    const pages = this.mappingPages();
+    const selected = this.selectedPageNo();
+    const index = pages.indexOf(selected || 0);
+    return index >= 0 ? `${index + 1}/${pages.length}` : `0/${pages.length}`;
+  }
+
+  zoomIn(event: Event): void {
+    event.stopPropagation();
+    this.setZoom(this.zoom() + 0.1);
+  }
+
+  zoomOut(event: Event): void {
+    event.stopPropagation();
+    this.setZoom(this.zoom() - 0.1);
+  }
+
+  resetZoom(event: Event): void {
+    event.stopPropagation();
+    this.setZoom(1);
+  }
+
+  private setZoom(value: number): void {
+    this.zoom.set(round2(clamp(value, 0.5, 2)));
+    this.renderSelectedPage();
+  }
+
   openHeaderInfo(event: Event): void {
     event.stopPropagation();
     this.dialog.open(TemplateHeaderInfoDialog, {
@@ -1711,6 +1765,7 @@ export class TemplateMappingWorkspacePage implements OnInit, AfterViewInit {
         next: async (bytes) => {
           try {
             this.pdfDocument = await pdfjsLib.getDocument({ data: bytes }).promise;
+            this.syncSelectedPageWithLoadedPdf();
             this.renderSelectedPage();
           } catch (error) {
             this.pdfError.set(error instanceof Error ? error.message : 'Unable to render PDF.');
@@ -1864,6 +1919,10 @@ export class TemplateMappingWorkspacePage implements OnInit, AfterViewInit {
     const pageNo = this.selectedPageNo();
     const canvas = this.pdfCanvas?.nativeElement;
     if (!document || !pageNo || !canvas) return;
+    if (pageNo < 1 || pageNo > document.numPages) {
+      this.pdfError.set(`Template page ${pageNo} is outside the loaded PDF page range 1-${document.numPages}. Please check Template Master mapping pages and uploaded PDF.`);
+      return;
+    }
 
     const renderId = ++this.renderVersion;
     this.pdfLoading.set(true);
@@ -1873,7 +1932,7 @@ export class TemplateMappingWorkspacePage implements OnInit, AfterViewInit {
       .then((page) => {
         if (renderId !== this.renderVersion) return null;
         const baseViewport = page.getViewport({ scale: 1 });
-        const scale = 780 / baseViewport.width;
+        const scale = (780 / baseViewport.width) * this.zoom();
         const viewport = page.getViewport({ scale });
         const context = canvas.getContext('2d');
         if (!context) throw new Error('Canvas rendering context is not available.');
@@ -1894,6 +1953,20 @@ export class TemplateMappingWorkspacePage implements OnInit, AfterViewInit {
         this.pdfLoading.set(false);
         this.pdfError.set(error.message || 'Unable to render selected PDF page.');
       });
+  }
+
+  private syncSelectedPageWithLoadedPdf(): void {
+    const document = this.pdfDocument;
+    if (!document) return;
+
+    const validPages = this.mappingPages().filter((page) => page >= 1 && page <= document.numPages);
+    const currentPage = this.selectedPageNo();
+    if (currentPage && validPages.includes(currentPage)) return;
+
+    this.selectedPageNo.set(validPages[0] ?? null);
+    if (!validPages.length) {
+      this.pdfError.set(`Configured mapping pages are outside the loaded PDF page range 1-${document.numPages}. Please correct Template Master mapping pages.`);
+    }
   }
 
   private buildPayload(): Record<string, unknown> {

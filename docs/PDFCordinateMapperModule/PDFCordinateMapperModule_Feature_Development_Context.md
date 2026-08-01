@@ -414,6 +414,29 @@ Do not use browser `alert()`.
 - Keep sensitive investor values out of logs unless explicitly required by audit design.
 - UI authorization is for usability only. API/DB authorization remains authoritative.
 
+## Maker-Checker Update Rule
+
+PDF module masters must follow the existing User Master / Role Master approval pattern:
+
+- Insert requests create a new `_APP` row and one common approval row.
+- When an insert is approved, the checker SP must back-fill `_APP.MST_COL_ID` with the live main-table `AUTOID`.
+- Update and delete requests for an approved master must reuse the existing `_APP` row linked by `MST_COL_ID`.
+- Update and delete requests must not create a duplicate live main-table row.
+- The maker SP should set the reused `_APP` row back to `STATUS = 0` with `ACTION = 'UPDATE'` or `ACTION = 'D'`.
+- A new `MF_COMMON_APPROVAL_MASTER` row is still created for every new approval request.
+- Checker approval updates the existing live main-table row for update/delete actions.
+- Log tables must receive entries for maker-submitted updates and checker-approved/rejected actions as applicable.
+- Approval list joins should only surface pending common approval rows with `MF_COMMON_APPROVAL_MASTER.STATUS = 0`.
+
+This rule applies to:
+
+```text
+MF_AMC_MASTER_IUDS
+MF_TEMPLATE_MASTER_IUDS
+MF_TEMPLATE_MAPPING_MASTER_IUDS
+MF_COMMON_APPROVAL_IUDS
+```
+
 ## Documentation Expectations for New Features
 
 Before implementing a substantial PDF Coordinate Mapper feature, create or update a feature implementation context under:

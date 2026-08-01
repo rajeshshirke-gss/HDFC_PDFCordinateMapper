@@ -7,8 +7,9 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { Router } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
-import { CellClickedEvent, ColDef, ValueGetterParams } from 'ag-grid-community';
+import { CellClickedEvent, ColDef, ICellRendererParams, ValueGetterParams } from 'ag-grid-community';
 import { filter, take } from 'rxjs';
 
 import { MfCommonApprovalActionDialog } from './mf-common-approval-action.dialog';
@@ -186,6 +187,7 @@ export class MfCommonApprovalPage implements OnInit {
   readonly store = inject(MfCommonApprovalStore);
 
   private readonly dialog = inject(MatDialog);
+  private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
 
   readonly defaultColDef: ColDef<MfCommonApprovalRecord> = {
@@ -214,6 +216,7 @@ export class MfCommonApprovalPage implements OnInit {
     const record = event.data;
     if (!action || !record) return;
     if (action === 'view') this.openDetails(record);
+    if (action === 'preview') this.previewMapping(record);
     if (action === 'approve') this.openAction('approve', record);
     if (action === 'reject') this.openAction('reject', record);
   }
@@ -224,6 +227,12 @@ export class MfCommonApprovalPage implements OnInit {
       maxWidth: '96vw',
       data: { record }
     });
+  }
+
+  private previewMapping(record: MfCommonApprovalRecord): void {
+    if (record.masterName !== 'Template Mapping Master') return;
+    const mappingId = record.tblAutoId || record.autoId;
+    this.router.navigateByUrl(`/pdf-coordinate-mapper/template-mapping/${mappingId}/view`);
   }
 
   private openAction(action: MfCommonApprovalAction, record: MfCommonApprovalRecord): void {
@@ -270,15 +279,21 @@ function orderedResponseKeys(rows: MfCommonApprovalRecord[]): string[] {
 function actionColumn(): ColDef<MfCommonApprovalRecord> {
   return {
     headerName: 'Actions',
-    width: 142,
+    width: 180,
     pinned: 'left',
     sortable: false,
     filter: false,
-    cellRenderer: () => `
-      <button class="grid-action" data-action="view" title="View" aria-label="View"><span class="material-icons">visibility</span></button>
-      <button class="grid-action approve" data-action="approve" title="Approve" aria-label="Approve"><span class="material-icons">check_circle</span></button>
-      <button class="grid-action reject" data-action="reject" title="Reject" aria-label="Reject"><span class="material-icons">cancel</span></button>
-    `
+    cellRenderer: ({ data }: ICellRendererParams<MfCommonApprovalRecord>) => {
+      const previewAction = data?.masterName === 'Template Mapping Master'
+        ? '<button class="grid-action" data-action="preview" title="Preview Mapping" aria-label="Preview Mapping"><span class="material-icons">preview</span></button>'
+        : '';
+      return `
+        <button class="grid-action" data-action="view" title="View" aria-label="View"><span class="material-icons">visibility</span></button>
+        ${previewAction}
+        <button class="grid-action approve" data-action="approve" title="Approve" aria-label="Approve"><span class="material-icons">check_circle</span></button>
+        <button class="grid-action reject" data-action="reject" title="Reject" aria-label="Reject"><span class="material-icons">cancel</span></button>
+      `;
+    }
   };
 }
 

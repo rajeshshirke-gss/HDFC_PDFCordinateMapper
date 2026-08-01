@@ -114,7 +114,9 @@ namespace HDFC.PDFCoordinateMapper.Api.Services
                 throw new FileNotFoundException("Template record was not found.");
             }
 
-            DataRow row = dataSet.Tables[0].Rows[0];
+            DataRow row = dataSet.Tables.Count > 1 && dataSet.Tables[1].Rows.Count > 0
+                ? dataSet.Tables[1].Rows[0]
+                : dataSet.Tables[0].Rows[0];
             string storedFileName = Value(row, "STORED_FILE_NAME", "storedFileName", "StoredFileName");
             if (string.IsNullOrWhiteSpace(storedFileName))
             {

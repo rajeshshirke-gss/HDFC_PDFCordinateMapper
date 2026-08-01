@@ -246,6 +246,51 @@ MF_TEMPLATE_MAPPING_FIELD_CONFIG_APP
   - `MASTERNAME = 'Template Mapping Master'`
   - `STATUS = 0`
 
+### Checker Review / Preview Implementation
+
+- Extended `MF_GET_COMMON_APPROVAL_DATA` for `MASTERNAME = 'Template Mapping Master'`.
+- Checker detail now returns one row per pending mapping field, including:
+  - mapping header
+  - template metadata
+  - field code/name/header/type
+  - page number
+  - X/Y/width/height
+  - required/repeat flags
+  - config count
+  - field-type-specific config summary
+- Common Approval UI now recognizes Template Mapping detail fields instead of treating the request as Template Master data.
+- Checker can open a read-only visual mapping preview from:
+  - the approval detail dialog `Preview Mapping` button
+  - the approval grid preview icon for Template Mapping rows
+- Preview route uses the pending mapping APP id:
+
+```text
+/pdf-coordinate-mapper/template-mapping/:tblAutoId/view
+```
+
+- The existing Template Mapping workspace loads pending APP rows before approved live rows, so checkers can see the exact maker-submitted mapping fields and use the existing PDF overlay/print preview behavior before approving or rejecting.
+
+### Maker-Checker Update Reuse Fix
+
+- Reviewed User Master / Role Master maker-checker behavior and aligned PDF module SPs with the same update principle.
+- Update/delete requests must reuse the existing `_APP` row linked by `MST_COL_ID`; they must not create a new live main-table row.
+- Changed these standalone SPs directly in DB:
+  - `MF_AMC_MASTER_IUDS`
+  - `MF_TEMPLATE_MASTER_IUDS`
+  - `MF_TEMPLATE_MAPPING_MASTER_IUDS`
+  - `MF_COMMON_APPROVAL_IUDS`
+- Approval inserts now back-fill `_APP.MST_COL_ID` with the live main-table `AUTOID` so future updates target the same staging row.
+- Existing approved `_APP` rows with missing `MST_COL_ID` were backfilled for AMC, Template Master, and Template Mapping using their unique business codes.
+- Template Mapping update now reuses the same `MF_TEMPLATE_MAPPING_MAIN_APP` row and refreshes child field/config `_APP` rows under that same app id.
+- Maker update submissions write log records for the reused APP state; checker approval still writes approved log snapshots.
+- Approval/list joins were restricted to pending common approval rows (`STATUS = 0`) to avoid duplicate list rows from historical approvals.
+- SQLcl smoke verification:
+  - Created temporary AMC, Template, and Template Mapping records.
+  - Approved inserts with checker user.
+  - Submitted update requests with maker user.
+  - Verified one live row and one reused `_APP` row per master after update.
+  - Cleaned up all temporary smoke rows.
+
 ### Canvas Config Sync Fix
 
 - Fixed field-type changes so changing the `Field Type` resets that field to the correct default config for the selected type.

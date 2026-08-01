@@ -97,13 +97,52 @@ function displayFields(row: Record<string, unknown>): string[] {
 }
 
 function detailFields(row: Record<string, unknown>, masterName: string): Array<{ label: string; value: string }> {
-  const keys = masterName === 'AMC Master'
-    ? ['AMC_CODE', 'AMC_NAME', 'AMC_DESCRIPTION', 'ISACTIVE', 'ACTION', 'CREATEDBY', 'CREATEDDATE']
-    : ['TEMPLATE_CODE', 'TEMPLATE_NAME', 'TEMPLATE_DESCRIPTION', 'ORIGINAL_FILE_NAME', 'PDF_PAGE_COUNT', 'MAPPING_PAGE_NUMBERS', 'PRINT_PAGE_NUMBERS', 'REPEAT_ROWS_PER_PAGE', 'ISACTIVE', 'ACTION', 'CREATEDBY', 'CREATEDDATE'];
+  const keys = detailKeys(masterName);
 
   return keys
     .map((key) => ({ label: headerFor(key), value: pickString(row, [key]) }))
     .filter((field) => field.value);
+}
+
+function detailKeys(masterName: string): string[] {
+  if (masterName === 'AMC Master') {
+    return ['AMC_CODE', 'AMC_NAME', 'AMC_DESCRIPTION', 'ISACTIVE', 'ACTION', 'CREATEDBY', 'CREATEDDATE'];
+  }
+
+  if (masterName === 'Template Mapping Master') {
+    return [
+      'MAPPING_CODE',
+      'MAPPING_NAME',
+      'MAPPING_DESCRIPTION',
+      'TEMPLATE_CODE',
+      'TEMPLATE_NAME',
+      'ORIGINAL_FILE_NAME',
+      'MAPPING_PAGE_NUMBERS',
+      'PRINT_PAGE_NUMBERS',
+      'COORDINATE_ORIGIN',
+      'FIELD_CODE',
+      'FIELD_NAME',
+      'EXCEL_HEADER_NAME',
+      'FIELD_TYPE',
+      'PAGE_NO',
+      'X_COORDINATE',
+      'Y_COORDINATE',
+      'FIELD_WIDTH',
+      'FIELD_HEIGHT',
+      'IS_REQUIRED',
+      'SAMPLE_VALUE',
+      'DISPLAY_SEQUENCE',
+      'IS_REPEATABLE',
+      'REPEAT_GROUP_CODE',
+      'CONFIG_COUNT',
+      'CONFIG_SUMMARY',
+      'MAPPING_ACTION',
+      'CREATEDBY',
+      'CREATEDDATE'
+    ];
+  }
+
+  return ['TEMPLATE_CODE', 'TEMPLATE_NAME', 'TEMPLATE_DESCRIPTION', 'ORIGINAL_FILE_NAME', 'PDF_PAGE_COUNT', 'MAPPING_PAGE_NUMBERS', 'PRINT_PAGE_NUMBERS', 'REPEAT_ROWS_PER_PAGE', 'ISACTIVE', 'ACTION', 'CREATEDBY', 'CREATEDDATE'];
 }
 
 function headerFor(key: string): string {

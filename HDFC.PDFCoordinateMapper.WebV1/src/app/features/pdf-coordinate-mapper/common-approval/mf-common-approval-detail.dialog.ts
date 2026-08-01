@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { Router } from '@angular/router';
 
 import { MfCommonApprovalRecord } from './mf-common-approval.models';
 import { MfCommonApprovalStore } from './mf-common-approval.store';
@@ -45,6 +46,12 @@ import { MfCommonApprovalStore } from './mf-common-approval.store';
     </mat-dialog-content>
 
     <mat-dialog-actions align="end">
+      @if (isTemplateMappingApproval) {
+        <button mat-flat-button color="primary" type="button" (click)="previewMapping()">
+          <mat-icon>preview</mat-icon>
+          Preview Mapping
+        </button>
+      }
       <button mat-button type="button" (click)="close()">Close</button>
     </mat-dialog-actions>
   `,
@@ -120,6 +127,9 @@ export class MfCommonApprovalDetailDialog {
   readonly data = inject<{ record: MfCommonApprovalRecord }>(MAT_DIALOG_DATA);
   readonly store = inject(MfCommonApprovalStore);
   private readonly dialogRef = inject(MatDialogRef<MfCommonApprovalDetailDialog>);
+  private readonly router = inject(Router);
+
+  readonly isTemplateMappingApproval = this.data.record.masterName === 'Template Mapping Master';
 
   constructor() {
     this.store.loadDetails(this.data.record);
@@ -128,5 +138,11 @@ export class MfCommonApprovalDetailDialog {
   close(): void {
     this.store.clearDetails();
     this.dialogRef.close();
+  }
+
+  previewMapping(): void {
+    const mappingId = this.data.record.tblAutoId || this.data.record.autoId;
+    this.close();
+    this.router.navigateByUrl(`/pdf-coordinate-mapper/template-mapping/${mappingId}/view`);
   }
 }
