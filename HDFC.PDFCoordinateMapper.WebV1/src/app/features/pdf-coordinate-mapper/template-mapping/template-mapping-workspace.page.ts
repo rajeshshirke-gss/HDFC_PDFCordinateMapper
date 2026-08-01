@@ -1355,12 +1355,13 @@ export class TemplateMappingWorkspacePage implements OnInit, AfterViewInit {
     }
 
     if (this.pointerAction.kind === 'optionMove') {
-      const deltaX = point.x - this.pointerAction.startX;
-      const deltaY = point.y - this.pointerAction.startY;
-      this.patchOptionConfig(this.pointerAction.configSequence, (config) => ({
+      const action = this.pointerAction;
+      const deltaX = point.x - action.startX;
+      const deltaY = point.y - action.startY;
+      this.patchOptionConfig(action.configSequence, (config) => ({
         ...config,
-        optionXCoordinate: round2(clamp(this.pointerAction.originalX + deltaX, 0, 100 - this.pointerAction.width)),
-        optionYCoordinate: round2(clamp(this.pointerAction.originalY + deltaY, 0, 100 - this.pointerAction.height))
+        optionXCoordinate: round2(clamp(action.originalX + deltaX, 0, 100 - action.width)),
+        optionYCoordinate: round2(clamp(action.originalY + deltaY, 0, 100 - action.height))
       }));
       return;
     }
