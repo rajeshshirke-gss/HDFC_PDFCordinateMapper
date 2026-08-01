@@ -56,29 +56,41 @@
   <ItemGroup>
     <Compile Include="App_Start\SwaggerConfig.cs" /><Compile Include="App_Start\UnityConfig.cs" /><Compile Include="App_Start\WebApiConfig.cs" />
     <Compile Include="Configuration\AppSettings.cs" /><Compile Include="Constants\ApiConstants.cs" />
+    <Compile Include="Controllers\AmcMasterController.cs" />
     <Compile Include="Controllers\AuthController.cs" /><Compile Include="Controllers\HealthController.cs" />
     <Compile Include="Controllers\CommonApprovalController.cs" />
+    <Compile Include="Controllers\MfCommonApprovalController.cs" />
     <Compile Include="Controllers\MenuController.cs" />
     <Compile Include="Controllers\PdfCoordinatesController.cs" />
     <Compile Include="Controllers\RoleMasterController.cs" />
     <Compile Include="Controllers\RoleModuleMappingController.cs" />
+    <Compile Include="Controllers\TemplateMappingController.cs" />
+    <Compile Include="Controllers\TemplateMasterController.cs" />
     <Compile Include="Controllers\UserMasterController.cs" />
     <Compile Include="Controllers\WelcomeController.cs" />
     <Compile Include="Database\ConnectionFactory.cs" /><Compile Include="Database\DbHelper.cs" />
     <Compile Include="Filters\ConfigurableAuthorizeAttribute.cs" />
     <Compile Include="Filters\GlobalExceptionFilter.cs" />
+    <Compile Include="Models\AmcMasterModels.cs" />
     <Compile Include="Models\ApiResponse.cs" /><Compile Include="Models\AuthModels.cs" />
     <Compile Include="Models\CommonApprovalModels.cs" />
+    <Compile Include="Models\MfCommonApprovalModels.cs" />
     <Compile Include="Models\MenuModels.cs" />
     <Compile Include="Models\PdfCoordinate.cs" />
     <Compile Include="Models\RoleMasterModels.cs" />
     <Compile Include="Models\RoleModuleMappingModels.cs" />
+    <Compile Include="Models\TemplateMappingModels.cs" />
+    <Compile Include="Models\TemplateMasterModels.cs" />
     <Compile Include="Models\UserMasterModels.cs" />
     <Compile Include="Models\WelcomeModels.cs" />
+    <Compile Include="Services\AmcMasterService.cs" />
     <Compile Include="Services\AuthService.cs" /><Compile Include="Services\CommonApprovalService.cs" /><Compile Include="Services\LegacyRequestValue.cs" />
+    <Compile Include="Services\MfCommonApprovalService.cs" />
     <Compile Include="Services\MenuService.cs" /><Compile Include="Services\PdfCoordinateService.cs" />
     <Compile Include="Services\RoleMasterService.cs" /><Compile Include="Services\UserMasterService.cs" /><Compile Include="Services\WelcomeService.cs" />
     <Compile Include="Services\RoleModuleMappingService.cs" />
+    <Compile Include="Services\TemplateMappingService.cs" />
+    <Compile Include="Services\TemplateMasterService.cs" />
     <Compile Include="Utilities\CsvHelper.cs" /><Compile Include="Utilities\EncryptionHelper.cs" />
     <Compile Include="Utilities\ExcelHelper.cs" /><Compile Include="Utilities\JsonHelper.cs" />
     <Compile Include="Utilities\Logger.cs" /><Compile Include="Utilities\JwtTokenHandler.cs" />

@@ -17,12 +17,16 @@ namespace HDFC.PDFCoordinateMapper.Api.App_Start
             var container = new UnityContainer();
             container.RegisterInstance<IConnectionFactory>(new ConnectionFactory(AppSettings.OracleConnectionString));
             container.RegisterType<IDbHelper, DbHelper>();
+            container.RegisterType<IAmcMasterService, AmcMasterService>();
             container.RegisterType<IAuthService, AuthService>();
             container.RegisterType<ICommonApprovalService, CommonApprovalService>();
             container.RegisterType<IMenuService, MenuService>();
+            container.RegisterType<IMfCommonApprovalService, MfCommonApprovalService>();
             container.RegisterType<IPdfCoordinateService, PdfCoordinateService>();
             container.RegisterType<IRoleMasterService, RoleMasterService>();
             container.RegisterType<IRoleModuleMappingService, RoleModuleMappingService>();
+            container.RegisterType<ITemplateMappingService, TemplateMappingService>();
+            container.RegisterType<ITemplateMasterService, TemplateMasterService>();
             container.RegisterType<IUserMasterService, UserMasterService>();
             container.RegisterType<IWelcomeService, WelcomeService>();
             container.RegisterType<IJwtTokenService, JwtTokenService>();
