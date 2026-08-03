@@ -9,7 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AgGridAngular } from 'ag-grid-angular';
-import { CellClickedEvent, ColDef, FilterChangedEvent, GridApi, GridReadyEvent, IHeaderParams, ValueGetterParams } from 'ag-grid-community';
+import { CellClickedEvent, ColDef, GridApi, GridReadyEvent, IHeaderParams, ValueGetterParams } from 'ag-grid-community';
 
 import { RoleMasterDialogData, RoleMasterFormValue, RoleMasterMenuRow } from './role-master.models';
 import { RoleMasterStore } from './role-master.store';
@@ -72,21 +72,23 @@ export class RoleMenuSelectAllHeader {
         <div class="form-grid">
           <mat-form-field appearance="outline">
             <mat-label>Role Code</mat-label>
-            <input matInput formControlName="roleCode" maxlength="50" />
+            <input matInput formControlName="roleCode" maxlength="50" required />
             <mat-error>Role Code is required.</mat-error>
           </mat-form-field>
 
           <mat-form-field appearance="outline">
             <mat-label>Role Name</mat-label>
-            <input matInput formControlName="roleName" maxlength="100" />
+            <input matInput formControlName="roleName" maxlength="100" required />
             <mat-error>Role Name is required.</mat-error>
           </mat-form-field>
 
           <mat-form-field appearance="outline">
             <mat-label>Active</mat-label>
-            <mat-select formControlName="active">
+            <mat-select formControlName="active" required>
               <mat-option value="Y">Active</mat-option>
-              <mat-option value="N">Inactive</mat-option>
+              @if (data.mode !== 'create') {
+                <mat-option value="N">Inactive</mat-option>
+              }
             </mat-select>
             <mat-error>Active is required.</mat-error>
           </mat-form-field>
@@ -113,7 +115,6 @@ export class RoleMenuSelectAllHeader {
                 [suppressCellFocus]="true"
                 [context]="gridContext"
                 (gridReady)="onMenuGridReady($event)"
-                (filterChanged)="onMenuFilterChanged($event)"
                 (cellClicked)="onMenuCellClicked($event)"
               />
               @if (store.roleMenuLoading()) {
@@ -131,6 +132,9 @@ export class RoleMenuSelectAllHeader {
       </form>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
+      @if (data.mode !== 'view') {
+        <button mat-button type="button" (click)="clearForm()">Clear</button>
+      }
       <button mat-button type="button" (click)="close()">Close</button>
       @if (data.mode !== 'view') {
         <button mat-flat-button color="primary" type="button" [disabled]="form.invalid" (click)="submit()">
@@ -260,6 +264,11 @@ export class RoleMenuSelectAllHeader {
       cursor: pointer;
     }
 
+    :host ::ng-deep .menu-checkbox:disabled {
+      cursor: default;
+      opacity: 0.55;
+    }
+
     @media (max-width: 760px) {
       .role-form {
         min-width: 0;
@@ -326,7 +335,7 @@ export class RoleMasterFormDialog {
       sortable: false,
       filter: false,
       cellRenderer: ({ data }: { data?: RoleMasterMenuRow }) => `
-        <input class="menu-checkbox" data-action="toggle" type="checkbox" ${data?.selected ? 'checked' : ''} aria-label="Select menu" />
+        <input class="menu-checkbox" data-action="toggle" type="checkbox" ${data?.selected ? 'checked' : ''} ${this.isMenuSelectionDisabled() ? 'disabled' : ''} aria-label="Select menu" />
       `
     },
     { headerName: 'Module Name', field: 'moduleName', minWidth: 160 },
@@ -368,6 +377,11 @@ export class RoleMasterFormDialog {
       this.form.controls.roleCode.disable();
     }
 
+    if (this.data.mode === 'create') {
+      this.form.controls.active.setValue('Y');
+      this.form.controls.active.disable();
+    }
+
     if (this.data.mode === 'view') {
       this.form.disable();
     }
@@ -386,10 +400,6 @@ export class RoleMasterFormDialog {
 
   onMenuGridReady(event: GridReadyEvent<RoleMasterMenuRow>): void {
     this.menuGridApi.set(event.api);
-  }
-
-  onMenuFilterChanged(event: FilterChangedEvent<RoleMasterMenuRow>): void {
-    event.api.refreshHeader();
   }
 
   setMenuSearch(value: string): void {
@@ -431,6 +441,32 @@ export class RoleMasterFormDialog {
   close(): void {
     this.store.clearRoleMenus();
     this.dialogRef.close();
+  }
+
+  clearForm(): void {
+    if (this.data.mode === 'edit' && this.data.record) {
+      this.form.patchValue({
+        roleCode: this.data.record.roleCode,
+        roleName: this.data.record.roleName,
+        description: this.data.record.description,
+        active: this.data.record.active || 'Y',
+        menuAccess: this.data.record.menuAccess
+      });
+      this.store.loadRoleMenus(this.data.record, this.data.record.menuAccess);
+      return;
+    }
+
+    this.form.reset({
+      roleCode: '',
+      roleName: '',
+      description: '',
+      active: 'Y',
+      menuAccess: ''
+    });
+    this.form.controls.active.disable();
+    this.store.setAllRoleMenus(false);
+    this.syncMenuAccess();
+    queueMicrotask(() => this.menuGridApi()?.refreshHeader());
   }
 
   private toggleMenu(menuId: string): void {

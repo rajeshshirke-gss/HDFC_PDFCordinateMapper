@@ -22,10 +22,10 @@ import { MenuNode } from '../auth/auth.models';
             <mat-icon>menu</mat-icon>
           </button>
         }
-        <div class="brand">
+        <button class="brand" type="button" aria-label="Go to welcome page" (click)="goWelcome()">
           <span class="brand-mark">HDFC</span>
           <span>PDF Coordinate Mapper</span>
-        </div>
+        </button>
         <span class="spacer"></span>
         <span class="user-name">{{ authStore.user()?.userName || authStore.user()?.userId }}</span>
         <button mat-stroked-button type="button" (click)="logout()">Logout</button>
@@ -105,9 +105,19 @@ import { MenuNode } from '../auth/auth.models';
       align-items: center;
       gap: 12px;
       margin-left: 8px;
+      padding: 0;
+      border: 0;
+      background: transparent;
       font-size: 16px;
       font-weight: 700;
       color: var(--hdfc-header-text);
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .brand:focus-visible {
+      outline: 2px solid var(--hdfc-header-outline);
+      outline-offset: 4px;
     }
 
     .brand-mark {
@@ -281,6 +291,12 @@ export class ApplicationShellComponent implements OnInit {
     this.isSidebarCollapsed = !this.isSidebarCollapsed;
   }
 
+  goWelcome(): void {
+    this.authStore.setSelectedModuleId('');
+    this.authStore.clearMenu();
+    this.router.navigateByUrl('/dashboard');
+  }
+
   toggleNode(node: MenuNode): void {
     if (this.isSidebarCollapsed) {
       this.isSidebarCollapsed = false;
@@ -312,7 +328,7 @@ export class ApplicationShellComponent implements OnInit {
 
   logout(): void {
     this.authService.logout().subscribe(() => {
-      this.snackBar.open('Logged out.', 'Close', { duration: 5000 });
+      this.snackBar.open('Logged out.', 'Close', { duration: 4000 });
       this.router.navigateByUrl('/login');
     });
   }

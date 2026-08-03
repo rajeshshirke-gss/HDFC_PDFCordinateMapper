@@ -43,9 +43,7 @@ function toMenuNode(row: Record<string, unknown>, index: number): MenuNode {
     'Title',
     'TITLE'
   ], 'Menu');
-  const legacyUrl = pickString(row, ['url', 'URL', 'Url', 'LINK', 'Link', 'ROUTE', 'Route', 'PATH', 'Path']);
-  const actionName = pickString(row, ['actionname', 'ACTIONNAME', 'ActionName', 'ACTION_NAME']);
-  const controllerName = pickString(row, ['controllername', 'CONTROLLERNAME', 'ControllerName', 'CONTROLLER_NAME']);
+  const upgradedUrl = pickString(row, ['URL_UPGRADE', 'url_upgrade', 'Url_Upgrade', 'urlUpgrade', 'UrlUpgrade']);
   const icon = normalizeIcon(pickString(row, ['icon', 'ICON', 'Icon']));
 
   return {
@@ -54,7 +52,7 @@ function toMenuNode(row: Record<string, unknown>, index: number): MenuNode {
     parentId: normalizeParentId(pickString(row, ['PARENT_ID', 'parenT_ID', 'ParentId', 'parentId', 'PARENTID', 'PARENT_MENU_ID', 'ParentMenuId'])),
     moduleId: pickString(row, ['moduleid', 'MODULEID', 'ModuleId', 'MODULE_ID']),
     label,
-    route: toAngularRoute(label, legacyUrl, actionName, controllerName),
+    route: toAngularRoute(upgradedUrl),
     icon: icon.name,
     iconType: icon.type,
     order: Number(pickString(row, ['MENU_SEQUENCE', 'menU_SEQUENCE', 'MenuSequence', 'SEQUENCE', 'SEQNO', 'SeqNo', 'ORDERNO', 'OrderNo'], '0')) || 0,
@@ -98,67 +96,21 @@ function normalizeParentId(parentId: string): string {
   return parentId && parentId !== '0' ? parentId : '';
 }
 
-function toAngularRoute(label: string, legacyUrl: string, actionName: string, controllerName: string): string {
-  const directRoute = normalizeDirectRoute(legacyUrl);
-  if (directRoute) {
-    return directRoute;
-  }
-
-  const value = `${label} ${legacyUrl} ${actionName} ${controllerName}`.toLowerCase();
-  if (/master\s*authentication|common\s*approval|commonapproval|authori[sz]e|authentication/.test(value) || label.trim().toLowerCase() === 'approval') {
-    return '/administration/common-approval';
-  }
-
-  if (/role.*menu|menu.*access|module/.test(value)) {
-    return '/administration/role-menu-access';
-  }
-
-  if (/role/.test(value)) {
-    return '/administration/roles';
-  }
-
-  if (/user/.test(value)) {
-    return '/administration/users';
-  }
-
-  if (/dashboard|welcome|home/.test(value)) {
-    return '/dashboard';
-  }
-
-  return '';
-}
-
-function normalizeDirectRoute(legacyUrl: string): string {
-  const route = legacyUrl.trim();
+function toAngularRoute(url: string): string {
+  const route = normalizeRoute(url);
   if (!route || route === '#') {
     return '';
   }
 
-  if (['/dashboard', '/administration/users', '/administration/roles', '/administration/role-menu-access', '/administration/common-approval'].includes(route)) {
-    return route;
-  }
+  return knownRoutes.has(route) ? route : '';
+}
 
-  if (/\/?dashboard$/i.test(route)) {
-    return '/dashboard';
-  }
+const knownRoutes = new Set(['/dashboard', '/administration/users', '/administration/roles', '/administration/role-menu-access', '/administration/common-approval']);
 
-  if (/user(master)?/i.test(route)) {
-    return '/administration/users';
-  }
-
-  if (/master\s*authentication|common\s*approval|commonapproval|authori[sz]e|authentication|(^|\/)approval$/i.test(route)) {
-    return '/administration/common-approval';
-  }
-
-  if (/module|menuaccess|rolemenu/i.test(route)) {
-    return '/administration/role-menu-access';
-  }
-
-  if (/role(master)?/i.test(route)) {
-    return '/administration/roles';
-  }
-
-  return '';
+function normalizeRoute(url: string): string {
+  const route = url.trim();
+  if (!route || route === '#') return '';
+  return route.startsWith('/') ? route : `/${route}`;
 }
 
 function normalizeIcon(icon: string): { name: string; type: 'fontawesome' | 'material' } {

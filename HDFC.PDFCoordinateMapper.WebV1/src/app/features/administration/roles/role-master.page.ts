@@ -255,7 +255,7 @@ export class RoleMasterPage implements OnInit {
       }
     }).afterClosed().pipe(take(1), filter(Boolean)).subscribe(() => {
       this.store.deleteRole(record);
-      this.snackBar.open('Delete request submitted.', 'Close', { duration: 5000 });
+      this.snackBar.open('Delete request submitted.', 'Close', { duration: 4000 });
     });
   }
 
@@ -275,7 +275,7 @@ export class RoleMasterPage implements OnInit {
         width: '440px',
         data: { title: mode === 'create' ? 'Create Role' : 'Update Role', message, confirmText: mode === 'create' ? 'Submit' : 'Submit Update' }
       }).afterClosed().pipe(take(1), filter(Boolean)).subscribe(() => {
-        const onSuccess = () => this.snackBar.open(this.store.lastMessage() || 'Role request submitted.', 'Close', { duration: 5000 });
+        const onSuccess = () => this.snackBar.open(this.store.lastMessage() || 'Role request submitted.', 'Close', { duration: 4000 });
         if (mode === 'create') this.store.createRole(value, onSuccess);
         else if (record) this.store.updateRole(record, value, onSuccess);
       });
@@ -283,7 +283,7 @@ export class RoleMasterPage implements OnInit {
   }
 }
 
-const hiddenResponseFields = new Set(['password']);
+const hiddenResponseFields = new Set(['autoid', 'password']);
 
 const headerLabels: Record<string, string> = {
   autoid: 'Auto ID',
@@ -312,9 +312,9 @@ function orderedResponseKeys(rows: RoleMasterRecord[]): string[] {
   const seen = new Set<string>();
   for (const row of rows) {
     for (const key of Object.keys(row.raw)) {
-      const normalized = key.toLowerCase();
-      if (hiddenResponseFields.has(normalized) || seen.has(key)) continue;
-      seen.add(key);
+      const normalized = normalizeFieldKey(key);
+      if (hiddenResponseFields.has(normalized) || seen.has(normalized)) continue;
+      seen.add(normalized);
       keys.push(key);
     }
   }
@@ -350,4 +350,8 @@ function widthFor(key: string): number {
 
 function formatCellValue(value: unknown): string {
   return value === undefined || value === null ? '' : String(value);
+}
+
+function normalizeFieldKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, '');
 }

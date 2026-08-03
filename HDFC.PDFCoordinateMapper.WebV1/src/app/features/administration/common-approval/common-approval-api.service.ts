@@ -56,21 +56,51 @@ export class CommonApprovalApiService {
   }
 
   loadRoleModuleMapping(record: ApprovalSummaryRecord | ApprovalDetailRecord, currentUser: string): Observable<RoleModuleMappingRecord[]> {
-    const roleId = pickString(record.raw, ['roleid', 'RoleId', 'ROLEID', 'groupid', 'GroupId', 'GROUP_ID', 'autoid', 'AutoId', 'AUTOID']) || record.autoId;
+    const roleId = pickString(record.raw, [
+      'roleid',
+      'RoleId',
+      'ROLEID',
+      'role_id',
+      'Role_Id',
+      'ROLE_ID',
+      'groupid',
+      'GroupId',
+      'GROUPID',
+      'group_id',
+      'Group_Id',
+      'GROUP_ID',
+      'autoid',
+      'auto_Id',
+      'Auto_Id',
+      'autoId',
+      'AutoId',
+      'AUTO_ID',
+      'AUTOID'
+    ]) || record.autoId;
+    const roleName = pickString(record.raw, ['rolename', 'RoleName', 'ROLE_NAME', 'role_Name', 'Role_Name']);
+    const autoId = pickString(record.raw, ['autoid', 'auto_Id', 'Auto_Id', 'autoId', 'AutoId', 'AUTO_ID', 'AUTOID'], record.autoId);
     return this.http.post<unknown>(`${API_BASE_URL}/api/RoleModuleMapping/RoleModuleMaster_IUDS`, {
       ProcessName: 'SELECT',
       processName: 'SELECT',
       RoleId: roleId,
       roleId,
-      RoleName: '',
+      RoleName: roleName,
+      roleName,
       MenuAccess: '',
+      menuAccess: '',
       Groupid: '',
+      groupid: '',
       UserId: currentUser,
       userId: currentUser,
-      ApprovedBy: '',
-      AutoId: ''
+      ApprovedBy: currentUser,
+      approvedBy: currentUser,
+      AutoId: autoId,
+      autoId
     }).pipe(
-      map((response) => dataSetRows<Record<string, unknown>>(response).map(toRoleModuleMappingRecord)),
+      map((response) => applyRoleMenuChecks(
+        dataSetRows<Record<string, unknown>>(response),
+        dataSetRows<Record<string, unknown>>(response, 2)
+      ).map(toRoleModuleMappingRecord)),
       catchError((error) => throwError(() => new Error(errorMessage(error, 'Unable to load role module mapping.'))))
     );
   }
@@ -162,6 +192,23 @@ function toRoleModuleMappingRecord(row: Record<string, unknown>): RoleModuleMapp
     menuChecked: checked === '1',
     status: pickString(row, ['status', 'Status', 'STATUS'])
   };
+}
+
+function applyRoleMenuChecks(roleMenus: Record<string, unknown>[], userMenus: Record<string, unknown>[]): Record<string, unknown>[] {
+  const userMenuIds = new Set(
+    userMenus
+      .map((row) => Number(menuIdForCheck(row)))
+      .filter((menuId) => Number.isFinite(menuId))
+  );
+
+  return roleMenus.map((menu) => ({
+    ...menu,
+    MenuChecked: userMenuIds.has(Number(menuIdForCheck(menu))) ? '1' : '0'
+  }));
+}
+
+function menuIdForCheck(row: Record<string, unknown>): string {
+  return pickString(row, ['MenuId', 'menuId', 'MENUID', 'menuid', 'Menu_Id', 'MENU_ID', 'menU_ID']);
 }
 
 function toDetailsMasterName(masterName: string): string {
