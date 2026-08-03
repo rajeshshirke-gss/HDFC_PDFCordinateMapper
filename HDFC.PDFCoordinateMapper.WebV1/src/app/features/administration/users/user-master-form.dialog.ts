@@ -28,19 +28,19 @@ import { UserMasterDialogData, UserMasterFormValue } from './user-master.models'
           <div class="form-grid">
             <mat-form-field appearance="outline">
               <mat-label>User ID</mat-label>
-              <input matInput formControlName="userId" maxlength="35" />
+              <input matInput formControlName="userId" maxlength="35" required />
               <mat-error>User ID is required.</mat-error>
             </mat-form-field>
 
             <mat-form-field appearance="outline">
               <mat-label>User Name</mat-label>
-              <input matInput formControlName="userName" maxlength="100" />
+              <input matInput formControlName="userName" maxlength="100" required />
               <mat-error>User Name is required.</mat-error>
             </mat-form-field>
 
             <mat-form-field appearance="outline">
               <mat-label>Email</mat-label>
-              <input matInput formControlName="email" />
+              <input matInput formControlName="email" required />
               <mat-error>Valid email is required.</mat-error>
             </mat-form-field>
           </div>
@@ -51,25 +51,25 @@ import { UserMasterDialogData, UserMasterFormValue } from './user-master.models'
           <div class="form-grid">
             <mat-form-field appearance="outline">
               <mat-label>Branch Code</mat-label>
-              <input matInput formControlName="branchCode" />
+              <input matInput formControlName="branchCode" required />
               <mat-error>Branch Code is required.</mat-error>
             </mat-form-field>
 
             <mat-form-field appearance="outline">
               <mat-label>Branch Name</mat-label>
-              <input matInput formControlName="branchName" />
+              <input matInput formControlName="branchName" required />
               <mat-error>Branch Name is required.</mat-error>
             </mat-form-field>
 
             <mat-form-field appearance="outline">
               <mat-label>Department Code</mat-label>
-              <input matInput formControlName="departmentCode" />
+              <input matInput formControlName="departmentCode" required />
               <mat-error>Department Code is required.</mat-error>
             </mat-form-field>
 
             <mat-form-field appearance="outline">
               <mat-label>Department Name</mat-label>
-              <input matInput formControlName="departmentName" />
+              <input matInput formControlName="departmentName" required />
               <mat-error>Department Name is required.</mat-error>
             </mat-form-field>
           </div>
@@ -80,7 +80,7 @@ import { UserMasterDialogData, UserMasterFormValue } from './user-master.models'
           <div class="form-grid compact">
             <mat-form-field appearance="outline">
               <mat-label>Role</mat-label>
-              <mat-select formControlName="roleId">
+              <mat-select formControlName="roleId" required>
                 @for (role of data.roles; track role.id) {
                   <mat-option [value]="role.id">{{ role.name }}</mat-option>
                 }
@@ -90,7 +90,7 @@ import { UserMasterDialogData, UserMasterFormValue } from './user-master.models'
 
             <mat-form-field appearance="outline">
               <mat-label>Active</mat-label>
-              <mat-select formControlName="active">
+              <mat-select formControlName="active" required>
                 @for (option of activeOptions; track option.id) {
                   <mat-option [value]="option.id">{{ option.name }}</mat-option>
                 }
@@ -102,6 +102,9 @@ import { UserMasterDialogData, UserMasterFormValue } from './user-master.models'
       </form>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
+      @if (data.mode !== 'view') {
+        <button mat-button type="button" (click)="clearForm()">Clear</button>
+      }
       <button mat-button type="button" (click)="close()">Close</button>
       @if (data.mode !== 'view') {
         <button mat-flat-button color="primary" type="button" [disabled]="form.invalid" (click)="submit()">
@@ -127,12 +130,13 @@ import { UserMasterDialogData, UserMasterFormValue } from './user-master.models'
     }
 
     .dialog-close {
-      color: var(--mat-sys-tertiary);
+      color: var(--app-heading);
       flex: 0 0 auto;
+      background: transparent;
     }
 
     .dialog-close:hover {
-      background: var(--mat-sys-tertiary-container);
+      background: transparent;
     }
 
     .user-form {
@@ -235,6 +239,35 @@ export class UserMasterFormDialog {
 
   close(): void {
     this.dialogRef.close();
+  }
+
+  clearForm(): void {
+    if (this.data.mode === 'edit' && this.data.record) {
+      this.form.patchValue({
+        userId: this.data.record.userId,
+        userName: this.data.record.userName,
+        email: this.data.record.email,
+        roleId: this.data.record.roleId,
+        branchCode: this.data.record.branchCode,
+        branchName: this.data.record.branchName,
+        departmentCode: this.data.record.departmentCode,
+        departmentName: this.data.record.departmentName,
+        active: resolveActiveValue(this.data.record.active, this.activeOptions)
+      });
+      return;
+    }
+
+    this.form.reset({
+      userId: '',
+      userName: '',
+      email: '',
+      roleId: '',
+      branchCode: '',
+      branchName: '',
+      departmentCode: '',
+      departmentName: '',
+      active: this.activeOptions[0]?.id || 'Y'
+    });
   }
 }
 

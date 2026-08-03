@@ -21,11 +21,14 @@ export class RoleMasterApiService {
   }
 
   loadMenuRows(currentUser: string, role: RoleMasterRecord | null, menuAccess: string): Observable<RoleMasterMenuRow[]> {
-    const selectedFromRole = parseMenuAccess(menuAccess);
     return this.http.post<unknown>(`${API_BASE_URL}/api/RoleModuleMapping/RoleModuleMaster_IUDS`, buildRoleModuleMenuPayload(currentUser, role, menuAccess)).pipe(
-      map((response) => dataSetRows<Record<string, unknown>>(response)
-        .map((row, index) => toRoleMenuRow(row, selectedFromRole, index))
-      ),
+      map((response) => {
+        const menuRows = applyRoleMenuChecks(
+          dataSetRows<Record<string, unknown>>(response),
+          dataSetRows<Record<string, unknown>>(response, 2)
+        );
+        return menuRows.map((row, index) => toRoleMenuRow(row, index));
+      }),
       catchError((error) => throwError(() => new Error(errorMessage(error, 'Unable to load role menus.'))))
     );
   }
@@ -65,6 +68,8 @@ export class RoleMasterApiService {
 }
 
 function buildRoleModuleMenuPayload(currentUser: string, role: RoleMasterRecord | null, menuAccess: string): Record<string, string> {
+  const roleId = role ? roleIdForMenuMapping(role) : '';
+  const autoId = role?.autoId || '';
   if (!role) {
     return {
       processName: 'SELECT',
@@ -77,21 +82,45 @@ function buildRoleModuleMenuPayload(currentUser: string, role: RoleMasterRecord 
   return {
     processName: 'SELECT',
     ProcessName: 'SELECT',
-    roleId: role.autoId || role.roleCode || '0',
-    RoleId: role.autoId || role.roleCode || '0',
+    roleId,
+    RoleId: roleId,
     roleName: role.roleName || '',
     RoleName: role.roleName || '',
     menuAccess,
     MenuAccess: menuAccess,
-    groupid: role.autoId || role.roleCode || '',
-    Groupid: role.autoId || role.roleCode || '',
+    groupid: roleId,
+    Groupid: roleId,
     userId: currentUser,
     UserId: currentUser,
     approvedBy: currentUser,
     ApprovedBy: currentUser,
-    autoId: '',
-    AutoId: ''
+    autoId,
+    AutoId: autoId
   };
+}
+
+function roleIdForMenuMapping(role: RoleMasterRecord): string {
+  return pickString(role.raw, [
+    'roleid',
+    'RoleId',
+    'ROLEID',
+    'role_id',
+    'Role_Id',
+    'ROLE_ID',
+    'groupid',
+    'GroupId',
+    'GROUPID',
+    'group_id',
+    'Group_Id',
+    'GROUP_ID',
+    'autoid',
+    'auto_Id',
+    'Auto_Id',
+    'autoId',
+    'AutoId',
+    'AUTO_ID',
+    'AUTOID'
+  ], role.autoId || role.roleCode || '0');
 }
 
 function buildPayload(flag: 'INSERT' | 'UPDATE', value: RoleMasterFormValue, currentUser: string): Record<string, string> {
@@ -130,11 +159,11 @@ function toRoleRecord(row: Record<string, unknown>): RoleMasterRecord {
     roleName: pickString(row, ['rolename', 'role_Name', 'Role_Name', 'roleName', 'RoleName', 'ROLE_NAME']),
     description: pickString(row, ['description', 'Description', 'ROLE_DESCRIPTION', 'RoleDescription']),
     active: pickString(row, ['isactive', 'active', 'Active', 'ACTIVE', 'ISACTIVE']),
-    menuAccess: pickString(row, ['menuaccess', 'menuAccess', 'MenuAccess', 'MENU_ACCESS'])
+    menuAccess: pickMenuAccess(row)
   };
 }
 
-function toRoleMenuRow(row: Record<string, unknown>, selectedFromRole: Set<string>, index: number): RoleMasterMenuRow {
+function toRoleMenuRow(row: Record<string, unknown>, index: number): RoleMasterMenuRow {
   const mainMenu = pickString(row, ['mainmenu', 'MainMenu', 'MAINMENU', 'main_menu', 'Main_Menu'], '');
   const subMenu = pickString(row, ['submenu', 'SubMenu', 'SUBMENU', 'sub_menu', 'Sub_Menu'], '');
   const caption = pickString(row, ['caption', 'Caption', 'CAPTION', 'value', 'Value'], subMenu || mainMenu || 'Menu');
@@ -150,9 +179,31 @@ function toRoleMenuRow(row: Record<string, unknown>, selectedFromRole: Set<strin
     moduleName: pickString(row, ['modulename', 'ModuleName', 'MODULE_NAME'], ''),
     mainMenu,
     subMenu: subMenu || caption,
-    selected: selectedFromRole.has(menuAccessId) || isSelectedByApi(row),
+    selected: isMenuChecked(row),
     order: Number(pickString(row, ['menU_SEQUENCE', 'MENU_SEQUENCE', 'menu_sequence', 'MenuSequence'], '0')) || 0
   };
+}
+
+function pickMenuAccess(row: Record<string, unknown>): string {
+  const directValue = pickString(row, [
+    'menuaccess',
+    'menuAccess',
+    'MenuAccess',
+    'MENUACCESS',
+    'MENU_ACCESS',
+    'Menu Access',
+    'MENU ACCESS',
+    'menu_access',
+    'MENUS',
+    'menus'
+  ]);
+
+  if (directValue) {
+    return directValue;
+  }
+
+  const looseEntry = Object.entries(row).find(([key]) => /menu\s*_?\s*access/i.test(key));
+  return looseEntry ? String(looseEntry[1] ?? '').trim() : '';
 }
 
 function menuAccessIdFor(row: Record<string, unknown>): string {
@@ -169,6 +220,13 @@ function menuAccessIdFor(row: Record<string, unknown>): string {
     'MENUID',
     'menu_id',
     'Menu_Id',
+    'submenunumber',
+    'SubMenunumber',
+    'SUBMENUNUMBER',
+    'subMenuNumber',
+    'SubMenuNumber',
+    'submenu_number',
+    'Sub_Menu_Number',
     'id',
     'Id',
     'ID',
@@ -196,8 +254,25 @@ function menuAccessIdFor(row: Record<string, unknown>): string {
     .find((value) => isMenuId(value) && Number(value) > 1) || '';
 }
 
-function parseMenuAccess(value: string): Set<string> {
-  return new Set(value.split(/[,\|;]/).map((item) => normalizeMenuId(item.trim())).filter(isMenuId));
+function applyRoleMenuChecks(roleMenus: Record<string, unknown>[], userMenus: Record<string, unknown>[]): Record<string, unknown>[] {
+  const userMenuIds = new Set(
+    userMenus
+      .map((row) => Number(menuIdForCheck(row)))
+      .filter((menuId) => Number.isFinite(menuId))
+  );
+
+  return roleMenus.map((menu) => ({
+    ...menu,
+    MenuChecked: userMenuIds.has(Number(menuIdForCheck(menu))) ? '1' : '0'
+  }));
+}
+
+function menuIdForCheck(row: Record<string, unknown>): string {
+  return pickString(row, ['MenuId', 'menuId', 'MENUID', 'menuid']);
+}
+
+function isMenuChecked(row: Record<string, unknown>): boolean {
+  return pickString(row, ['MenuChecked', 'menuChecked', 'MENUCHECKED', 'menuchecked']) === '1';
 }
 
 function isMenuId(value: string): boolean {
@@ -206,11 +281,6 @@ function isMenuId(value: string): boolean {
 
 function normalizeMenuId(value: string): string {
   return value.replace(/\.0$/, '');
-}
-
-function isSelectedByApi(row: Record<string, unknown>): boolean {
-  const value = pickString(row, ['selected', 'Selected', 'checked', 'Checked', 'status', 'Status', 'rights', 'Rights', 'access', 'Access']);
-  return /^(1|y|yes|true|selected|checked|active|allowed)$/i.test(value);
 }
 
 function errorMessage(error: unknown, fallback: string): string {

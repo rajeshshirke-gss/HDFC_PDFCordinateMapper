@@ -163,6 +163,7 @@ export class LoginPage {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
+  private errorTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly form = this.fb.nonNullable.group({
     userId: ['', Validators.required],
@@ -183,14 +184,28 @@ export class LoginPage {
 
     this.authService.login(this.form.getRawValue()).subscribe({
       next: () => {
-        this.snackBar.open('Login successful.', 'Close', { duration: 5000 });
+        this.snackBar.open('Login successful.', 'Close', { duration: 4000 });
         this.router.navigateByUrl('/dashboard');
       },
       error: (error: Error) => {
         this.errorMessage = error.message;
-        this.snackBar.open(error.message, 'Close', { duration: 5000, panelClass: 'snackbar-error' });
+        this.scheduleErrorClear(error.message);
+        this.snackBar.open(error.message, 'Close', { duration: 4000, panelClass: 'snackbar-error' });
         this.isSubmitting = false;
       }
     });
+  }
+
+  private scheduleErrorClear(message: string): void {
+    if (this.errorTimer) {
+      clearTimeout(this.errorTimer);
+    }
+
+    this.errorTimer = setTimeout(() => {
+      if (this.errorMessage === message) {
+        this.errorMessage = '';
+      }
+      this.errorTimer = null;
+    }, 4000);
   }
 }

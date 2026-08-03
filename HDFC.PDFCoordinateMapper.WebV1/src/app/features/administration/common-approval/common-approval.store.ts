@@ -22,6 +22,7 @@ export class CommonApprovalStore {
   private readonly submittingState = signal(false);
   private readonly errorState = signal('');
   private readonly lastMessageState = signal('');
+  private messageTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly masters = computed(() => this.mastersState());
   readonly selectedMaster = computed(() => this.selectedMasterState());
@@ -42,7 +43,7 @@ export class CommonApprovalStore {
     this.errorState.set('');
     this.api.loadMasters().pipe(finalize(() => this.loadingState.set(false))).subscribe({
       next: (masters) => this.mastersState.set(masters),
-      error: (error: Error) => this.errorState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -57,7 +58,7 @@ export class CommonApprovalStore {
     this.errorState.set('');
     this.api.loadPending(this.currentUser(), this.selectedMasterState()).pipe(finalize(() => this.loadingState.set(false))).subscribe({
       next: (rows) => this.pendingState.set(rows),
-      error: (error: Error) => this.errorState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -67,7 +68,7 @@ export class CommonApprovalStore {
     this.errorState.set('');
     this.api.loadDetails(summary, this.currentUser()).pipe(finalize(() => this.detailLoadingState.set(false))).subscribe({
       next: (rows) => this.detailsState.set(rows),
-      error: (error: Error) => this.errorState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -87,12 +88,12 @@ export class CommonApprovalStore {
   submitDecisions(onSuccess: () => void): void {
     const summary = this.selectedSummaryState();
     if (!summary) {
-      this.errorState.set('Select a pending approval record first.');
+      this.setErrorMessage('Select a pending approval record first.');
       return;
     }
 
     if (!this.selectedDecisionCount()) {
-      this.errorState.set('Select at least one approve or reject decision.');
+      this.setErrorMessage('Select at least one approve or reject decision.');
       return;
     }
 
@@ -101,12 +102,12 @@ export class CommonApprovalStore {
     this.lastMessageState.set('');
     this.api.submitDecisions(this.detailsState(), summary, this.currentUser()).pipe(finalize(() => this.submittingState.set(false))).subscribe({
       next: (results) => {
-        this.lastMessageState.set(results.map((result) => result.message).filter(Boolean).join(' ') || 'Approval decision submitted.');
+        this.setLastMessage(results.map((result) => result.message).filter(Boolean).join(' ') || 'Approval decision submitted.');
         this.loadPending();
         this.loadDetails(summary);
         onSuccess();
       },
-      error: (error: Error) => this.errorState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -116,7 +117,7 @@ export class CommonApprovalStore {
     this.mappingState.set([]);
     this.api.loadRoleModuleMapping(record, this.currentUser()).pipe(finalize(() => this.mappingLoadingState.set(false))).subscribe({
       next: (rows) => this.mappingState.set(rows),
-      error: (error: Error) => this.errorState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -131,8 +132,42 @@ export class CommonApprovalStore {
   }
 
   clearMessages(): void {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+      this.messageTimer = null;
+    }
     this.errorState.set('');
     this.lastMessageState.set('');
+  }
+
+  private setErrorMessage(message: string): void {
+    this.errorState.set(message);
+    this.lastMessageState.set('');
+    this.scheduleMessageClear(message, 'error');
+  }
+
+  private setLastMessage(message: string): void {
+    this.lastMessageState.set(message);
+    this.errorState.set('');
+    this.scheduleMessageClear(message, 'success');
+  }
+
+  private scheduleMessageClear(message: string, type: 'error' | 'success'): void {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+    }
+
+    this.messageTimer = setTimeout(() => {
+      if (type === 'error' && this.errorState() === message) {
+        this.errorState.set('');
+      }
+
+      if (type === 'success' && this.lastMessageState() === message) {
+        this.lastMessageState.set('');
+      }
+
+      this.messageTimer = null;
+    }, 4000);
   }
 
   private currentUser(): string {

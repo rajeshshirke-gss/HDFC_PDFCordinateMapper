@@ -179,7 +179,7 @@ export class DashboardPage {
       error: () => {
         this.loadingModuleId = '';
       }
-    });
+    }); 
   }
 
   selectedModuleLabel(): string {

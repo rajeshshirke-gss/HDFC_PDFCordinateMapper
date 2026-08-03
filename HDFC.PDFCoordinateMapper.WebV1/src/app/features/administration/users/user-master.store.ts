@@ -21,6 +21,7 @@ export class UserMasterStore {
   private readonly submittingState = signal(false);
   private readonly errorMessageState = signal('');
   private readonly lastMessageState = signal('');
+  private messageTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly users = computed(() => this.usersState());
   readonly approvedRecords = computed(() => this.approvedUsersState());
@@ -55,7 +56,7 @@ export class UserMasterStore {
         this.usersState.set(snapshot.allUsers);
         this.approvedUsersState.set(snapshot.approvedUsers);
       },
-      error: (error: Error) => this.errorMessageState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -68,7 +69,7 @@ export class UserMasterStore {
         this.rolesState.set(snapshot.roles);
         this.activeOptionsState.set(snapshot.activeOptions);
       },
-      error: (error: Error) => this.errorMessageState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -86,11 +87,11 @@ export class UserMasterStore {
 
     this.api.createUser(value, this.currentUser()).pipe(finalize(() => this.submittingState.set(false))).subscribe({
       next: (result) => {
-        this.lastMessageState.set(result.message);
+        this.setLastMessage(result.message);
         this.loadUsers();
         onSuccess();
       },
-      error: (error: Error) => this.errorMessageState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -100,11 +101,11 @@ export class UserMasterStore {
 
     this.api.updateUser(record, value, this.currentUser()).pipe(finalize(() => this.submittingState.set(false))).subscribe({
       next: (result) => {
-        this.lastMessageState.set(result.message);
+        this.setLastMessage(result.message);
         this.loadUsers();
         onSuccess();
       },
-      error: (error: Error) => this.errorMessageState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -114,16 +115,50 @@ export class UserMasterStore {
 
     this.api.deleteUser(record, this.currentUser()).pipe(finalize(() => this.submittingState.set(false))).subscribe({
       next: (result) => {
-        this.lastMessageState.set(result.message);
+        this.setLastMessage(result.message);
         this.loadUsers();
       },
-      error: (error: Error) => this.errorMessageState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
   clearMessages(): void {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+      this.messageTimer = null;
+    }
     this.errorMessageState.set('');
     this.lastMessageState.set('');
+  }
+
+  private setErrorMessage(message: string): void {
+    this.errorMessageState.set(message);
+    this.lastMessageState.set('');
+    this.scheduleMessageClear(message, 'error');
+  }
+
+  private setLastMessage(message: string): void {
+    this.lastMessageState.set(message);
+    this.errorMessageState.set('');
+    this.scheduleMessageClear(message, 'success');
+  }
+
+  private scheduleMessageClear(message: string, type: 'error' | 'success'): void {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+    }
+
+    this.messageTimer = setTimeout(() => {
+      if (type === 'error' && this.errorMessageState() === message) {
+        this.errorMessageState.set('');
+      }
+
+      if (type === 'success' && this.lastMessageState() === message) {
+        this.lastMessageState.set('');
+      }
+
+      this.messageTimer = null;
+    }, 4000);
   }
 
   private currentUser(): string {

@@ -351,7 +351,7 @@ export class UserMasterPage implements OnInit {
       }
     }).afterClosed().pipe(take(1), filter(Boolean)).subscribe(() => {
       this.store.deleteUser(record);
-      this.snackBar.open('Delete request submitted.', 'Close', { duration: 5000 });
+      this.snackBar.open('Delete request submitted.', 'Close', { duration: 4000 });
     });
   }
 
@@ -387,7 +387,7 @@ export class UserMasterPage implements OnInit {
         }
       }).afterClosed().pipe(take(1), filter(Boolean)).subscribe(() => {
         const onSuccess = () => {
-          this.snackBar.open(this.store.lastMessage() || 'User request submitted.', 'Close', { duration: 5000 });
+          this.snackBar.open(this.store.lastMessage() || 'User request submitted.', 'Close', { duration: 4000 });
         };
 
         if (mode === 'create') {
@@ -400,7 +400,7 @@ export class UserMasterPage implements OnInit {
   }
 }
 
-const hiddenResponseFields = new Set(['moduleid', 'moduleaccessid', 'password']);
+const hiddenResponseFields = new Set(['autoid', 'moduleid', 'moduleaccessid', 'password']);
 
 const headerLabels: Record<string, string> = {
   autoid: 'Auto ID',
@@ -437,12 +437,12 @@ function orderedResponseKeys(rows: UserMasterRecord[]): string[] {
 
   for (const row of rows) {
     for (const key of Object.keys(row.raw)) {
-      const normalized = key.toLowerCase();
-      if (hiddenResponseFields.has(normalized) || seen.has(key)) {
+      const normalized = normalizeFieldKey(key);
+      if (hiddenResponseFields.has(normalized) || seen.has(normalized)) {
         continue;
       }
 
-      seen.add(key);
+      seen.add(normalized);
       keys.push(key);
     }
   }
@@ -497,4 +497,8 @@ function formatCellValue(value: unknown): string {
   }
 
   return String(value);
+}
+
+function normalizeFieldKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, '');
 }

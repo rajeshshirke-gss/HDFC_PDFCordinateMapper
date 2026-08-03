@@ -19,6 +19,7 @@ export class RoleMenuAccessStore {
   private readonly loadingState = signal(false);
   private readonly menuLoadingState = signal(false);
   private readonly errorState = signal('');
+  private messageTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly modules = computed(() => this.modulesState());
   readonly roles = computed(() => this.rolesState());
@@ -41,7 +42,7 @@ export class RoleMenuAccessStore {
         this.loadingState.set(false);
       },
       error: (error: Error) => {
-        this.errorState.set(error.message);
+        this.setErrorMessage(error.message);
         this.loadingState.set(false);
       }
     });
@@ -59,7 +60,7 @@ export class RoleMenuAccessStore {
   selectModule(module: ModuleMasterRecord): void {
     const moduleId = module.moduleId || module.autoId;
     if (!moduleId) {
-      this.errorState.set('Selected module does not contain a module id.');
+      this.setErrorMessage('Selected module does not contain a module id.');
       return;
     }
 
@@ -73,10 +74,25 @@ export class RoleMenuAccessStore {
         this.menuLoadingState.set(false);
       },
       error: (error: Error) => {
-        this.errorState.set(error.message);
+        this.setErrorMessage(error.message);
         this.menuLoadingState.set(false);
       }
     });
+  }
+
+  private setErrorMessage(message: string): void {
+    this.errorState.set(message);
+
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+    }
+
+    this.messageTimer = setTimeout(() => {
+      if (this.errorState() === message) {
+        this.errorState.set('');
+      }
+      this.messageTimer = null;
+    }, 4000);
   }
 
   private currentUser(): string {

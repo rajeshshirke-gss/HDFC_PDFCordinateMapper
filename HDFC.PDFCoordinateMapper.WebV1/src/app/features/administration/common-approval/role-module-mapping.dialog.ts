@@ -7,7 +7,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AgGridAngular } from 'ag-grid-angular';
 import { ColDef, ValueGetterParams } from 'ag-grid-community';
 
-import { ApprovalSummaryRecord, RoleModuleMappingRecord } from './common-approval.models';
+import { ApprovalDetailRecord, ApprovalSummaryRecord, RoleModuleMappingRecord } from './common-approval.models';
 import { CommonApprovalStore } from './common-approval.store';
 
 @Component({
@@ -51,15 +51,18 @@ import { CommonApprovalStore } from './common-approval.store';
   `]
 })
 export class RoleModuleMappingDialog {
-  readonly data = inject<{ summary: ApprovalSummaryRecord }>(MAT_DIALOG_DATA);
+  readonly data = inject<{ summary: ApprovalSummaryRecord; record?: ApprovalDetailRecord }>(MAT_DIALOG_DATA);
   readonly store = inject(CommonApprovalStore);
   private readonly dialogRef = inject(MatDialogRef<RoleModuleMappingDialog>);
 
   readonly defaultColDef: ColDef<RoleModuleMappingRecord> = { sortable: true, filter: 'agTextColumnFilter', floatingFilter: true, resizable: true };
-  readonly columnDefs = computed<ColDef<RoleModuleMappingRecord>[]>(() => responseColumns(this.store.mapping()));
+  readonly columnDefs = computed<ColDef<RoleModuleMappingRecord>[]>(() => [
+    selectedColumn(),
+    ...menuColumns()
+  ]);
 
   constructor() {
-    this.store.loadRoleModuleMapping(this.data.summary);
+    this.store.loadRoleModuleMapping(this.data.record ?? this.data.summary);
   }
 
   close(): void {
@@ -68,34 +71,39 @@ export class RoleModuleMappingDialog {
   }
 }
 
-function responseColumns(rows: RoleModuleMappingRecord[]): ColDef<RoleModuleMappingRecord>[] {
-  const keys = orderedKeys(rows);
-  return keys.map((key) => ({
-    headerName: headerFor(key),
-    colId: key,
-    minWidth: /module|menu|caption/i.test(key) ? 170 : 130,
-    valueGetter: ({ data }: ValueGetterParams<RoleModuleMappingRecord>) => formatValue(data?.raw?.[key])
-  }));
+function selectedColumn(): ColDef<RoleModuleMappingRecord> {
+  return {
+    headerName: '',
+    width: 70,
+    minWidth: 70,
+    maxWidth: 70,
+    sortable: false,
+    filter: false,
+    cellRenderer: ({ data }: { data?: RoleModuleMappingRecord }) => `<input type="checkbox" disabled ${data?.menuChecked ? 'checked' : ''} />`
+  };
 }
 
-function orderedKeys(rows: RoleModuleMappingRecord[]): string[] {
-  const keys: string[] = [];
-  const seen = new Set<string>();
-  for (const row of rows) {
-    for (const key of Object.keys(row.raw)) {
-      if (!seen.has(key)) {
-        seen.add(key);
-        keys.push(key);
-      }
+function menuColumns(): ColDef<RoleModuleMappingRecord>[] {
+  return [
+    {
+      headerName: 'Module Name',
+      minWidth: 190,
+      valueGetter: ({ data }: ValueGetterParams<RoleModuleMappingRecord>) => data?.moduleName || ''
+    },
+    {
+      headerName: 'Main Menu',
+      minWidth: 190,
+      valueGetter: ({ data }: ValueGetterParams<RoleModuleMappingRecord>) => data?.mainMenu || ''
+    },
+    {
+      headerName: 'Sub Menu',
+      minWidth: 220,
+      valueGetter: ({ data }: ValueGetterParams<RoleModuleMappingRecord>) => data?.subMenu || ''
+    },
+    {
+      headerName: 'Status',
+      minWidth: 150,
+      valueGetter: ({ data }: ValueGetterParams<RoleModuleMappingRecord>) => data?.menuChecked ? 'Selected' : 'Not Selected'
     }
-  }
-  return keys;
-}
-
-function headerFor(key: string): string {
-  return key.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function formatValue(value: unknown): string {
-  return value === undefined || value === null ? '' : String(value);
+  ];
 }
