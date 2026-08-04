@@ -80,14 +80,14 @@ export class CommonApprovalApiService {
     const roleName = pickString(record.raw, ['rolename', 'RoleName', 'ROLE_NAME', 'role_Name', 'Role_Name']);
     const autoId = pickString(record.raw, ['autoid', 'auto_Id', 'Auto_Id', 'autoId', 'AutoId', 'AUTO_ID', 'AUTOID'], record.autoId);
     return this.http.post<unknown>(`${API_BASE_URL}/api/RoleModuleMapping/RoleModuleMaster_IUDS`, {
-      ProcessName: 'SELECT',
-      processName: 'SELECT',
+      ProcessName: 'SELECTA',
+      processName: 'SELECTA',
       RoleId: roleId,
       roleId,
       RoleName: roleName,
       roleName,
       MenuAccess: '',
-      menuAccess: '',
+      menuAccess: '', 
       Groupid: '',
       groupid: '',
       UserId: currentUser,
