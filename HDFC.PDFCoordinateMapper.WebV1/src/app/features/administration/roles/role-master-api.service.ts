@@ -152,15 +152,31 @@ function buildPayload(flag: 'INSERT' | 'UPDATE', value: RoleMasterFormValue, cur
 }
 
 function toRoleRecord(row: Record<string, unknown>): RoleMasterRecord {
+  const active = pickString(row, ['isactive', 'active', 'Active', 'ACTIVE', 'ISACTIVE']);
+  const status = pickString(row, ['status', 'Status', 'STATUS', 'statusid', 'STATUSID']);
+  const actionRemark = pickString(row, ['actionRemark', 'ActionRemark', 'ACTIONREMARK', 'ACTION_REMARK', 'action', 'Action', 'ACTION']);
+
   return {
     raw: row,
     autoId: pickString(row, ['autoid', 'auto_Id', 'Auto_Id', 'autoId', 'AutoId', 'AUTO_ID', 'AUTOID']),
     roleCode: pickString(row, ['rolecode', 'role_Code', 'Role_Code', 'roleCode', 'RoleCode', 'ROLE_CODE']),
     roleName: pickString(row, ['rolename', 'role_Name', 'Role_Name', 'roleName', 'RoleName', 'ROLE_NAME']),
     description: pickString(row, ['description', 'Description', 'ROLE_DESCRIPTION', 'RoleDescription']),
-    active: pickString(row, ['isactive', 'active', 'Active', 'ACTIVE', 'ISACTIVE']),
-    menuAccess: pickMenuAccess(row)
+    active,
+    menuAccess: pickMenuAccess(row),
+    status,
+    statusLabel: actionRemark || status || active,
+    approvalState: approvalState(status, actionRemark, active),
+    actionRemark
   };
+}
+
+function approvalState(status: string, actionRemark: string, active: string): string {
+  const text = `${status} ${actionRemark} ${active}`.toLowerCase();
+  if (/delete|deleted|\bd\b/.test(text)) return 'Deleted';
+  if (/pending|insert|update|new added/.test(text)) return 'Pending';
+  if (/approved|^1$|active/.test(text)) return 'Approved';
+  return '';
 }
 
 function toRoleMenuRow(row: Record<string, unknown>, index: number): RoleMasterMenuRow {

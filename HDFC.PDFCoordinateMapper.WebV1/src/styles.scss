@@ -120,6 +120,18 @@ body {
   box-sizing: border-box;
 }
 
+*:not(input):not(textarea):not(select):not([contenteditable="true"]):not(.ag-input-field-input) {
+  caret-color: transparent;
+}
+
+input,
+textarea,
+select,
+[contenteditable="true"],
+.ag-input-field-input {
+  caret-color: auto;
+}
+
 button,
 input,
 textarea,
@@ -164,6 +176,10 @@ select {
 .mat-mdc-dialog-container,
 .mat-mdc-form-field {
   letter-spacing: 0;
+}
+
+.mat-mdc-form-field-required-marker {
+  color: var(--mat-sys-tertiary) !important;
 }
 
 .dialog-close {

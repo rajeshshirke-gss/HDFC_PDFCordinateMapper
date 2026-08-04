@@ -184,9 +184,30 @@ import { RoleMasterStore } from './role-master.store';
       color: #b42318;
     }
 
+    :host ::ng-deep .grid-action.disabled,
+    :host ::ng-deep .grid-action:disabled {
+      color: var(--app-muted);
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
     :host ::ng-deep .grid-action .material-icons {
       font-size: 18px;
       line-height: 18px;
+    }
+
+    :host ::ng-deep .approved-actions-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    :host ::ng-deep .approved-actions-cell .grid-action {
+      margin-right: 0;
+    }
+
+    :host ::ng-deep .approved-actions-header .ag-header-cell-label {
+      justify-content: center;
     }
 
   `]
@@ -199,7 +220,7 @@ export class RoleMasterPage implements OnInit {
 
   readonly quickSearch = computed(() => this.store.quickSearch());
   readonly activeRows = computed(() => this.store.activeRows());
-  readonly columnDefs = computed<ColDef<RoleMasterRecord>[]>(() => buildColumnDefs(this.activeRows()));
+  readonly columnDefs = computed<ColDef<RoleMasterRecord>[]>(() => buildColumnDefs(this.activeRows(), this.store.activeView()));
   readonly defaultColDef: ColDef<RoleMasterRecord> = { sortable: true, filter: 'agTextColumnFilter', floatingFilter: true, resizable: true };
 
   ngOnInit(): void {
@@ -227,9 +248,11 @@ export class RoleMasterPage implements OnInit {
     const action = target?.closest<HTMLButtonElement>('[data-action]')?.dataset?.['action'];
     const record = event.data;
     if (!action || !record) return;
+    const actionButton = target?.closest<HTMLButtonElement>('[data-action]');
+    if (actionButton?.disabled) return;
     if (action === 'view') this.openView(record);
-    if (action === 'edit') this.openEdit(record);
-    if (action === 'delete') this.confirmDelete(record);
+    if (action === 'edit' && this.canEdit(record)) this.openEdit(record);
+    if (action === 'delete' && this.canDelete()) this.confirmDelete(record);
   }
 
   openCreate(): void {
@@ -241,10 +264,19 @@ export class RoleMasterPage implements OnInit {
   }
 
   openEdit(record: RoleMasterRecord): void {
+    if (!this.canEdit(record)) {
+      this.snackBar.open('This role is already pending for approval.', 'Close', { duration: 4000 });
+      return;
+    }
+
     this.openForm('edit', record);
   }
 
   confirmDelete(record: RoleMasterRecord): void {
+    if (!this.canDelete()) {
+      return;
+    }
+
     this.dialog.open(ConfirmDialogComponent, {
       width: '420px',
       data: {
@@ -281,6 +313,14 @@ export class RoleMasterPage implements OnInit {
       });
     });
   }
+
+  private canEdit(record: RoleMasterRecord): boolean {
+    return this.store.activeView() !== 'approved' && record.approvalState !== 'Pending';
+  }
+
+  private canDelete(): boolean {
+    return this.store.activeView() !== 'approved';
+  }
 }
 
 const hiddenResponseFields = new Set(['autoid', 'password']);
@@ -297,9 +337,9 @@ const headerLabels: Record<string, string> = {
   action: 'Action'
 };
 
-function buildColumnDefs(rows: RoleMasterRecord[]): ColDef<RoleMasterRecord>[] {
+function buildColumnDefs(rows: RoleMasterRecord[], view: RoleMasterView): ColDef<RoleMasterRecord>[] {
   const keys = orderedResponseKeys(rows);
-  return [actionColumn(), ...keys.map((key) => ({
+  return [actionColumn(view), ...keys.map((key) => ({
     headerName: headerFor(key),
     colId: key,
     minWidth: widthFor(key),
@@ -321,18 +361,33 @@ function orderedResponseKeys(rows: RoleMasterRecord[]): string[] {
   return keys;
 }
 
-function actionColumn(): ColDef<RoleMasterRecord> {
+function actionColumn(view: RoleMasterView): ColDef<RoleMasterRecord> {
   return {
     headerName: 'Actions',
-    width: 150,
+    width: view === 'approved' ? 90 : 150,
+    minWidth: view === 'approved' ? 90 : 150,
+    maxWidth: view === 'approved' ? 90 : undefined,
     pinned: 'left',
     sortable: false,
     filter: false,
-    cellRenderer: () => `
-      <button class="grid-action" data-action="view" title="View" aria-label="View"><span class="material-icons">visibility</span></button>
-      <button class="grid-action" data-action="edit" title="Edit" aria-label="Edit"><span class="material-icons">edit</span></button>
-      <button class="grid-action delete" data-action="delete" title="Delete" aria-label="Delete"><span class="material-icons">delete</span></button>
-    `
+    cellClass: view === 'approved' ? 'approved-actions-cell' : undefined,
+    headerClass: view === 'approved' ? 'approved-actions-header' : undefined,
+    cellRenderer: ({ data }: { data?: RoleMasterRecord }) => {
+      const viewButton = '<button class="grid-action" data-action="view" title="View" aria-label="View"><span class="material-icons">visibility</span></button>';
+      if (view === 'approved') {
+        return viewButton;
+      }
+
+      const editButton = data?.approvalState === 'Pending'
+        ? '<button class="grid-action disabled" title="Pending for approval" aria-label="Edit disabled" disabled><span class="material-icons">edit</span></button>'
+        : '<button class="grid-action" data-action="edit" title="Edit" aria-label="Edit"><span class="material-icons">edit</span></button>';
+
+      return `
+        ${viewButton}
+        ${editButton}
+        <button class="grid-action delete" data-action="delete" title="Delete" aria-label="Delete"><span class="material-icons">delete</span></button>
+      `;
+    }
   };
 }
 
