@@ -224,7 +224,6 @@ export class CommonApprovalPage implements OnInit {
   readonly columnDefs = computed<ColDef<ApprovalSummaryRecord>[]>(() => buildColumnDefs(this.store.pending()));
 
   ngOnInit(): void {
-    this.store.loadMasters();
     this.store.loadPending();
   }
 
@@ -255,22 +254,22 @@ export class CommonApprovalPage implements OnInit {
       }).afterClosed().pipe(take(1)).subscribe(() => {
         this.refresh();
         if (this.store.lastMessage()) {
-          this.snackBar.open(this.store.lastMessage(), 'Close', { duration: 5000 });
+          this.snackBar.open(this.store.lastMessage(), 'Close', { duration: 4000 });
         }
       });
     }
 
-    if (action === 'mapping') {
-      this.dialog.open(RoleModuleMappingDialog, {
-        width: '1080px',
-        maxWidth: '96vw',
-        data: { summary: event.data }
-      });
-    }
+    // if (action === 'mapping') {
+    //   this.dialog.open(RoleModuleMappingDialog, {
+    //     width: '1080px',
+    //     maxWidth: '96vw',
+    //     data: { summary: event.data }
+    //   });
+    // }
   }
 }
 
-const hiddenResponseFields = new Set(['password']);
+const hiddenResponseFields = new Set(['password', 'cnt', 'mecnt', 'status']);
 
 function buildColumnDefs(rows: ApprovalSummaryRecord[]): ColDef<ApprovalSummaryRecord>[] {
   return [actionColumn(), ...orderedResponseKeys(rows).map((key) => ({
@@ -285,15 +284,13 @@ function actionColumn(): ColDef<ApprovalSummaryRecord> {
   return {
     headerName: 'Actions',
     width: 116,
+    minWidth: 116,
     pinned: 'left',
     sortable: false,
     filter: false,
     cellRenderer: () => `
       <button class="grid-action" data-action="view" title="View" aria-label="View">
         <span class="material-icons">visibility</span>
-      </button>
-      <button class="grid-action" data-action="mapping" title="Mapping" aria-label="Mapping">
-        <span class="material-icons">account_tree</span>
       </button>
     `
   };
@@ -310,10 +307,19 @@ function orderedResponseKeys(rows: ApprovalSummaryRecord[]): string[] {
       keys.push(key);
     }
   }
-  return keys;
+
+  return keys.length ? keys : ['count', 'mastername'];
 }
 
+const fallbackHeaderLabels: Record<string, string> = {
+  count: 'Count',
+  mastername: 'Master Name',
+  status1: 'Status'
+};
+
 function headerFor(key: string): string {
+  const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (fallbackHeaderLabels[normalized]) return fallbackHeaderLabels[normalized];
   return key.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 

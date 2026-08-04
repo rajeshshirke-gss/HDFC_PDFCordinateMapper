@@ -21,6 +21,7 @@ export class RoleMasterStore {
   private readonly roleMenuRowsState = signal<RoleMasterMenuRow[]>([]);
   private readonly roleMenuLoadingState = signal(false);
   private readonly roleMenuErrorState = signal('');
+  private messageTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly activeView = computed(() => this.activeViewState());
   readonly quickSearch = computed(() => this.quickSearchState());
@@ -46,7 +47,7 @@ export class RoleMasterStore {
         this.rolesState.set(snapshot.allRoles);
         this.approvedRolesState.set(snapshot.approvedRoles);
       },
-      error: (error: Error) => this.errorMessageState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -63,11 +64,11 @@ export class RoleMasterStore {
     this.clearMessages();
     this.api.createRole(value, this.currentUser()).pipe(finalize(() => this.submittingState.set(false))).subscribe({
       next: (result) => {
-        this.lastMessageState.set(result.message);
+        this.setLastMessage(result.message);
         this.loadRoles();
         onSuccess();
       },
-      error: (error: Error) => this.errorMessageState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -76,11 +77,11 @@ export class RoleMasterStore {
     this.clearMessages();
     this.api.updateRole(record, value, this.currentUser()).pipe(finalize(() => this.submittingState.set(false))).subscribe({
       next: (result) => {
-        this.lastMessageState.set(result.message);
+        this.setLastMessage(result.message);
         this.loadRoles();
         onSuccess();
       },
-      error: (error: Error) => this.errorMessageState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -89,10 +90,10 @@ export class RoleMasterStore {
     this.clearMessages();
     this.api.deleteRole(record, this.currentUser()).pipe(finalize(() => this.submittingState.set(false))).subscribe({
       next: (result) => {
-        this.lastMessageState.set(result.message);
+        this.setLastMessage(result.message);
         this.loadRoles();
       },
-      error: (error: Error) => this.errorMessageState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -126,8 +127,42 @@ export class RoleMasterStore {
   }
 
   clearMessages(): void {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+      this.messageTimer = null;
+    }
     this.errorMessageState.set('');
     this.lastMessageState.set('');
+  }
+
+  private setErrorMessage(message: string): void {
+    this.errorMessageState.set(message);
+    this.lastMessageState.set('');
+    this.scheduleMessageClear(message, 'error');
+  }
+
+  private setLastMessage(message: string): void {
+    this.lastMessageState.set(message);
+    this.errorMessageState.set('');
+    this.scheduleMessageClear(message, 'success');
+  }
+
+  private scheduleMessageClear(message: string, type: 'error' | 'success'): void {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+    }
+
+    this.messageTimer = setTimeout(() => {
+      if (type === 'error' && this.errorMessageState() === message) {
+        this.errorMessageState.set('');
+      }
+
+      if (type === 'success' && this.lastMessageState() === message) {
+        this.lastMessageState.set('');
+      }
+
+      this.messageTimer = null;
+    }, 4000);
   }
 
   private currentUser(): string {

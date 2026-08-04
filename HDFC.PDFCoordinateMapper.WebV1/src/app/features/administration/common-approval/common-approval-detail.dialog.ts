@@ -11,6 +11,7 @@ import { filter, take } from 'rxjs';
 import { ConfirmDialogComponent } from '../../../shared/confirm-dialog.component';
 import { ApprovalDetailRecord, ApprovalSummaryRecord } from './common-approval.models';
 import { CommonApprovalStore } from './common-approval.store';
+import { RoleModuleMappingDialog } from './role-module-mapping.dialog';
 
 @Component({
   selector: 'app-common-approval-detail-dialog',
@@ -158,6 +159,7 @@ import { CommonApprovalStore } from './common-approval.store';
 
     :host ::ng-deep .decision-column-header .ag-header-cell-label {
       justify-content: center;
+      overflow: visible;
     }
 
     :host ::ng-deep .decision-column-header .ag-floating-filter {
@@ -194,6 +196,24 @@ import { CommonApprovalStore } from './common-approval.store';
       cursor: pointer;
       margin: 0;
     }
+
+    :host ::ng-deep .grid-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--app-grid-border);
+      border-radius: 4px;
+      background: var(--app-surface);
+      color: var(--app-primary);
+      cursor: pointer;
+    }
+
+    :host ::ng-deep .grid-action .material-icons {
+      font-size: 18px;
+      line-height: 18px;
+    }
   `]
 })
 export class CommonApprovalDetailDialog {
@@ -207,7 +227,8 @@ export class CommonApprovalDetailDialog {
   readonly columnDefs = computed<ColDef<ApprovalDetailRecord>[]>(() => [
     decisionColumn('Approve', 'approve', (decision, checked) => this.setFilteredDecision(decision, checked)),
     decisionColumn('Reject', 'reject', (decision, checked) => this.setFilteredDecision(decision, checked)),
-    ...responseColumns(this.store.details())
+    ...roleMappingColumns(this.data.summary),
+    ...responseColumns(this.store.details(), this.data.summary)
   ]);
 
   constructor() {
@@ -224,9 +245,19 @@ export class CommonApprovalDetailDialog {
   }
 
   onCellClicked(event: CellClickedEvent<ApprovalDetailRecord>): void {
-    const action = (event.event?.target as HTMLElement | null)?.closest<HTMLInputElement>('[data-decision]')?.dataset?.['decision'];
-    if (!action || !event.data) return;
-    const decision = action === 'approve' ? 'approve' : 'reject';
+    const gridAction = (event.event?.target as HTMLElement | null)?.closest<HTMLButtonElement>('[data-action]')?.dataset?.['action'];
+    if (gridAction === 'mapping' && event.data) {
+      this.dialog.open(RoleModuleMappingDialog, {
+        width: '1080px',
+        maxWidth: '96vw',
+        data: { summary: this.data.summary, record: event.data }
+      });
+      return;
+    }
+
+    const decisionAction = (event.event?.target as HTMLElement | null)?.closest<HTMLInputElement>('[data-decision]')?.dataset?.['decision'];
+    if (!decisionAction || !event.data) return;
+    const decision = decisionAction === 'approve' ? 'approve' : 'reject';
     this.store.setDetailDecision(event.data.autoId, event.data.decision === decision ? '' : decision);
   }
 
@@ -267,6 +298,29 @@ export class CommonApprovalDetailDialog {
   }
 }
 
+function roleMappingColumns(summary: ApprovalSummaryRecord): ColDef<ApprovalDetailRecord>[] {
+  if (!isRoleMaster(summary)) return [];
+
+  return [{
+    headerName: 'Mapping',
+    width: 116,
+    minWidth: 116,
+    maxWidth: 116,
+    pinned: 'left',
+    sortable: false,
+    filter: false,
+    cellRenderer: () => `
+      <button class="grid-action" data-action="mapping" title="View mapping" aria-label="View mapping">
+        <span class="material-icons">account_tree</span>
+      </button>
+    `
+  }];
+}
+
+function isRoleMaster(summary: ApprovalSummaryRecord): boolean {
+  return /role/.test(`${summary.masterName} ${summary.detailsMasterName}`.toLowerCase());
+}
+
 function decisionColumn(
   label: string,
   decision: 'approve' | 'reject',
@@ -274,9 +328,9 @@ function decisionColumn(
 ): ColDef<ApprovalDetailRecord> {
   return {
     headerName: label,
-    width: 104,
-    minWidth: 104,
-    maxWidth: 104,
+    width: 132,
+    minWidth: 132,
+    maxWidth: 132,
     pinned: 'left',
     sortable: false,
     filter: 'agTextColumnFilter',
@@ -352,8 +406,8 @@ function filteredRows(api: GridApi<ApprovalDetailRecord>): ApprovalDetailRecord[
   return rows;
 }
 
-function responseColumns(rows: ApprovalDetailRecord[]): ColDef<ApprovalDetailRecord>[] {
-  const keys = orderedKeys(rows);
+function responseColumns(rows: ApprovalDetailRecord[], summary: ApprovalSummaryRecord): ColDef<ApprovalDetailRecord>[] {
+  const keys = orderedKeys(rows, summary);
   return keys.map((key) => ({
     headerName: headerFor(key),
     colId: key,
@@ -362,18 +416,83 @@ function responseColumns(rows: ApprovalDetailRecord[]): ColDef<ApprovalDetailRec
   }));
 }
 
-function orderedKeys(rows: ApprovalDetailRecord[]): string[] {
+const hiddenDetailFields = new Set(['autoid', 'groupid' , 'statusid', 'cnt', 'mecnt','Password']);
+const primaryFieldOrder = [
+  'userid',
+  'roleid',
+  'rolecode',
+  'rolename',
+  'username',
+  'email',
+  'description',
+  'isactive',
+  'Status',
+  'active'
+];
+const auditFieldOrder = [
+  'createdby',
+  'createddate',
+  'modifiedby',
+  'modifieddate',
+  'approvedby',
+  'approveddate'
+];
+
+function orderedKeys(rows: ApprovalDetailRecord[], summary: ApprovalSummaryRecord): string[] {
   const keys: string[] = [];
   const seen = new Set<string>();
   for (const row of rows) {
     for (const key of Object.keys(row.raw)) {
-      if (!seen.has(key)) {
-        seen.add(key);
-        keys.push(key);
-      }
+      const normalized = normalizeFieldKey(key);
+      if (hiddenDetailFields.has(normalized) || seen.has(normalized)) continue;
+      seen.add(normalized);
+      keys.push(key);
     }
   }
-  return keys;
+
+  if (!keys.length) {
+    for (const key of fallbackKeysFor(summary)) {
+      const normalized = normalizeFieldKey(key);
+      if (hiddenDetailFields.has(normalized) || seen.has(normalized)) continue;
+      seen.add(normalized);
+      keys.push(key);
+    }
+  }
+
+  return keys.sort((left, right) => displayOrder(left) - displayOrder(right));
+}
+
+function fallbackKeysFor(summary: ApprovalSummaryRecord): string[] {
+  const value = `${summary.masterName} ${summary.detailsMasterName}`.toLowerCase();
+  if (/user/.test(value)) {
+    return [
+      'userid',
+      'roleid',
+      'rolename',
+      'username',
+      'email',
+      'action',
+      'isactive',
+      'departmentcode',
+      'departmentname',
+      'branchcode',
+      'branchname',
+      ...auditFieldOrder
+    ];
+  }
+
+  if (/role/.test(value)) {
+    return [
+      'rolecode',
+      'rolename',
+      'description',
+      'action',
+      'isactive',
+      ...auditFieldOrder
+    ];
+  }
+
+  return [...primaryFieldOrder, ...auditFieldOrder];
 }
 
 function headerFor(key: string): string {
@@ -381,9 +500,30 @@ function headerFor(key: string): string {
 }
 
 function widthFor(key: string): number {
+  if (/user.?id|role.?id|role.?code/i.test(key)) return 160;
+  if (/createdby|modifiedby|approvedby/i.test(key)) return 170;
   return /date|remark|description|action/i.test(key) ? 190 : 140;
 }
 
 function formatValue(value: unknown): string {
   return value === undefined || value === null ? '' : String(value);
+}
+
+function displayOrder(key: string): number {
+  const normalized = normalizeFieldKey(key);
+  const primaryIndex = primaryFieldOrder.indexOf(normalized);
+  if (primaryIndex !== -1) {
+    return primaryIndex;
+  }
+
+  const auditIndex = auditFieldOrder.indexOf(normalized);
+  if (auditIndex !== -1) {
+    return primaryFieldOrder.length + auditIndex;
+  }
+
+  return primaryFieldOrder.length + auditFieldOrder.length;
+}
+
+function normalizeFieldKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, '');
 }

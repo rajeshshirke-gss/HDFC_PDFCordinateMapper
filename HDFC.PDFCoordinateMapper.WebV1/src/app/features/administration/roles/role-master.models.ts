@@ -14,6 +14,10 @@ export interface RoleMasterRecord {
   description: string;
   active: string;
   menuAccess: string;
+  status: string;
+  statusLabel: string;
+  approvalState: string;
+  actionRemark: string;
 }
 
 export interface RoleMasterFormValue {

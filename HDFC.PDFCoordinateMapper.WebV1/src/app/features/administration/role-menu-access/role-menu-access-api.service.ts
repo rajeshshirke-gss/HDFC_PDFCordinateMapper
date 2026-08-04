@@ -75,9 +75,7 @@ function toRoleOption(row: Record<string, unknown>): RoleAccessOption {
 
 function toMenuNode(row: Record<string, unknown>, index: number): MenuNode {
   const label = pickString(row, ['caption', 'Caption', 'value', 'Value', 'MENU_NAME', 'MenuName', 'MENUNAME', 'name', 'Name'], 'Menu');
-  const legacyUrl = pickString(row, ['url', 'URL', 'Url', 'route', 'Route', 'ROUTE', 'path', 'Path']);
-  const actionName = pickString(row, ['actionname', 'ActionName', 'ACTIONNAME', 'ACTION_NAME']);
-  const controllerName = pickString(row, ['controllername', 'ControllerName', 'CONTROLLERNAME', 'CONTROLLER_NAME']);
+  const upgradedUrl = pickString(row, ['URL_UPGRADE', 'url_upgrade', 'Url_Upgrade', 'urlUpgrade', 'UrlUpgrade']);
   const icon = normalizeIcon(pickString(row, ['icon', 'Icon', 'ICON']));
 
   return {
@@ -86,7 +84,7 @@ function toMenuNode(row: Record<string, unknown>, index: number): MenuNode {
     parentId: normalizeParentId(pickString(row, ['parenT_ID', 'PARENT_ID', 'ParentId', 'parentId', 'PARENTID'])),
     moduleId: pickString(row, ['moduleid', 'ModuleId', 'MODULEID', 'MODULE_ID']),
     label,
-    route: toAngularRoute(label, legacyUrl, actionName, controllerName),
+    route: toAngularRoute(upgradedUrl),
     icon: icon.name,
     iconType: icon.type,
     order: Number(pickString(row, ['menU_SEQUENCE', 'MENU_SEQUENCE', 'MenuSequence', 'SEQUENCE', 'SEQNO'], '0')) || 0,
@@ -128,29 +126,18 @@ function normalizeParentId(parentId: string): string {
   return parentId && parentId !== '0' ? parentId : '';
 }
 
-function toAngularRoute(label: string, legacyUrl: string, actionName: string, controllerName: string): string {
-  const route = normalizeDirectRoute(legacyUrl);
-  if (route) {
-    return route;
-  }
-
-  const value = `${label} ${legacyUrl} ${actionName} ${controllerName}`.toLowerCase();
-  if (/role.*menu|menu.*access|module/.test(value)) return '/administration/role-menu-access';
-  if (/role/.test(value)) return '/administration/roles';
-  if (/user/.test(value)) return '/administration/users';
-  if (/dashboard|welcome|home/.test(value)) return '/dashboard';
-  return '';
+function toAngularRoute(url: string): string {
+  const route = normalizeRoute(url);
+  if (!route || route === '#') return '';
+  return knownRoutes.has(route) ? route : '';
 }
 
-function normalizeDirectRoute(legacyUrl: string): string {
-  const route = legacyUrl.trim();
+const knownRoutes = new Set(['/dashboard', '/administration/users', '/administration/roles', '/administration/role-menu-access', '/administration/common-approval']);
+
+function normalizeRoute(url: string): string {
+  const route = url.trim();
   if (!route || route === '#') return '';
-  if (['/dashboard', '/administration/users', '/administration/roles', '/administration/role-menu-access'].includes(route)) return route;
-  if (/\/?dashboard$/i.test(route)) return '/dashboard';
-  if (/user(master)?/i.test(route)) return '/administration/users';
-  if (/module|menuaccess|rolemenu/i.test(route)) return '/administration/role-menu-access';
-  if (/role(master)?/i.test(route)) return '/administration/roles';
-  return '';
+  return route.startsWith('/') ? route : `/${route}`;
 }
 
 function normalizeIcon(icon: string): { name: string; type: 'fontawesome' | 'material' } {

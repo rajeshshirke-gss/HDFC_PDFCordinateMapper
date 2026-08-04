@@ -243,9 +243,30 @@ import { UserMasterStore } from './user-master.store';
       color: #b42318;
     }
 
+    :host ::ng-deep .grid-action.disabled,
+    :host ::ng-deep .grid-action:disabled {
+      color: var(--app-muted);
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
     :host ::ng-deep .grid-action .material-icons {
       font-size: 18px;
       line-height: 18px;
+    }
+
+    :host ::ng-deep .approved-actions-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    :host ::ng-deep .approved-actions-cell .grid-action {
+      margin-right: 0;
+    }
+
+    :host ::ng-deep .approved-actions-header .ag-header-cell-label {
+      justify-content: center;
     }
 
     @media (max-width: 760px) {
@@ -284,7 +305,7 @@ export class UserMasterPage implements OnInit {
     resizable: true
   };
 
-  readonly columnDefs = computed<ColDef<UserMasterRecord>[]>(() => buildColumnDefs(this.activeRows()));
+  readonly columnDefs = computed<ColDef<UserMasterRecord>[]>(() => buildColumnDefs(this.activeRows(), this.store.activeView()));
 
   ngOnInit(): void {
     this.store.loadRoles();
@@ -323,9 +344,13 @@ export class UserMasterPage implements OnInit {
       return;
     }
 
+    if (actionButton?.disabled) {
+      return;
+    }
+
     if (action === 'view') this.openView(record);
-    if (action === 'edit') this.openEdit(record);
-    if (action === 'delete') this.confirmDelete(record);
+    if (action === 'edit' && this.canEdit(record)) this.openEdit(record);
+    if (action === 'delete' && this.canDelete()) this.confirmDelete(record);
   }
 
   openCreate(): void {
@@ -337,10 +362,19 @@ export class UserMasterPage implements OnInit {
   }
 
   openEdit(record: UserMasterRecord): void {
+    if (!this.canEdit(record)) {
+      this.snackBar.open('This user is already pending for approval.', 'Close', { duration: 4000 });
+      return;
+    }
+
     this.openForm('edit', record);
   }
 
   confirmDelete(record: UserMasterRecord): void {
+    if (!this.canDelete()) {
+      return;
+    }
+
     this.dialog.open(ConfirmDialogComponent, {
       width: '420px',
       data: {
@@ -351,7 +385,7 @@ export class UserMasterPage implements OnInit {
       }
     }).afterClosed().pipe(take(1), filter(Boolean)).subscribe(() => {
       this.store.deleteUser(record);
-      this.snackBar.open('Delete request submitted.', 'Close', { duration: 5000 });
+      this.snackBar.open('Delete request submitted.', 'Close', { duration: 4000 });
     });
   }
 
@@ -387,7 +421,7 @@ export class UserMasterPage implements OnInit {
         }
       }).afterClosed().pipe(take(1), filter(Boolean)).subscribe(() => {
         const onSuccess = () => {
-          this.snackBar.open(this.store.lastMessage() || 'User request submitted.', 'Close', { duration: 5000 });
+          this.snackBar.open(this.store.lastMessage() || 'User request submitted.', 'Close', { duration: 4000 });
         };
 
         if (mode === 'create') {
@@ -398,9 +432,17 @@ export class UserMasterPage implements OnInit {
       });
     });
   }
+
+  private canEdit(record: UserMasterRecord): boolean {
+    return this.store.activeView() !== 'approved' && record.approvalState !== 'Pending';
+  }
+
+  private canDelete(): boolean {
+    return this.store.activeView() !== 'approved';
+  }
 }
 
-const hiddenResponseFields = new Set(['moduleid', 'moduleaccessid', 'password']);
+const hiddenResponseFields = new Set(['autoid', 'moduleid', 'moduleaccessid', 'password']);
 
 const headerLabels: Record<string, string> = {
   autoid: 'Auto ID',
@@ -419,7 +461,7 @@ const headerLabels: Record<string, string> = {
   branchname: 'Branch Name'
 };
 
-function buildColumnDefs(rows: UserMasterRecord[]): ColDef<UserMasterRecord>[] {
+function buildColumnDefs(rows: UserMasterRecord[], view: UserMasterView): ColDef<UserMasterRecord>[] {
   const responseKeys = orderedResponseKeys(rows);
   const dataColumns = responseKeys.map((key) => ({
     headerName: headerFor(key),
@@ -428,7 +470,7 @@ function buildColumnDefs(rows: UserMasterRecord[]): ColDef<UserMasterRecord>[] {
     valueGetter: ({ data }: ValueGetterParams<UserMasterRecord>) => formatCellValue(data?.raw?.[key])
   }));
 
-  return [actionColumn(), ...dataColumns];
+  return [actionColumn(view), ...dataColumns];
 }
 
 function orderedResponseKeys(rows: UserMasterRecord[]): string[] {
@@ -437,12 +479,12 @@ function orderedResponseKeys(rows: UserMasterRecord[]): string[] {
 
   for (const row of rows) {
     for (const key of Object.keys(row.raw)) {
-      const normalized = key.toLowerCase();
-      if (hiddenResponseFields.has(normalized) || seen.has(key)) {
+      const normalized = normalizeFieldKey(key);
+      if (hiddenResponseFields.has(normalized) || seen.has(normalized)) {
         continue;
       }
 
-      seen.add(key);
+      seen.add(normalized);
       keys.push(key);
     }
   }
@@ -450,24 +492,49 @@ function orderedResponseKeys(rows: UserMasterRecord[]): string[] {
   return keys;
 }
 
-function actionColumn(): ColDef<UserMasterRecord> {
+function actionColumn(view: UserMasterView): ColDef<UserMasterRecord> {
   return {
     headerName: 'Actions',
-    width: 150,
+    width: view === 'approved' ? 90 : 150,
+    minWidth: view === 'approved' ? 90 : 150,
+    maxWidth: view === 'approved' ? 90 : undefined,
     pinned: 'left',
     sortable: false,
     filter: false,
-    cellRenderer: () => `
-      <button class="grid-action" data-action="view" title="View" aria-label="View">
-        <span class="material-icons">visibility</span>
-      </button>
-      <button class="grid-action" data-action="edit" title="Edit" aria-label="Edit">
-        <span class="material-icons">edit</span>
-      </button>
-      <button class="grid-action delete" data-action="delete" title="Delete" aria-label="Delete">
-        <span class="material-icons">delete</span>
-      </button>
-    `
+    cellClass: view === 'approved' ? 'approved-actions-cell' : undefined,
+    headerClass: view === 'approved' ? 'approved-actions-header' : undefined,
+    cellRenderer: ({ data }: { data?: UserMasterRecord }) => {
+      const viewButton = `
+        <button class="grid-action" data-action="view" title="View" aria-label="View">
+          <span class="material-icons">visibility</span>
+        </button>
+      `;
+
+      if (view === 'approved') {
+        return viewButton;
+      }
+
+      const pendingApproval = data?.approvalState === 'Pending';
+      const editButton = pendingApproval
+        ? `
+          <button class="grid-action disabled" title="Pending for approval" aria-label="Edit disabled" disabled>
+            <span class="material-icons">edit</span>
+          </button>
+        `
+        : `
+          <button class="grid-action" data-action="edit" title="Edit" aria-label="Edit">
+            <span class="material-icons">edit</span>
+          </button>
+        `;
+
+      return `
+        ${viewButton}
+        ${editButton}
+        <button class="grid-action delete" data-action="delete" title="Delete" aria-label="Delete">
+          <span class="material-icons">delete</span>
+        </button>
+      `;
+    }
   };
 }
 
@@ -497,4 +564,8 @@ function formatCellValue(value: unknown): string {
   }
 
   return String(value);
+}
+
+function normalizeFieldKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
