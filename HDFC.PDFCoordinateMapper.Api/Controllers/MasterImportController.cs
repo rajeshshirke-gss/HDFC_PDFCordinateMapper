@@ -37,6 +37,17 @@ namespace HDFC.PDFCoordinateMapper.Api.Controllers
             });
         }
 
+        [HttpGet]
+        [Route("GetImportLog")]
+        public IHttpActionResult GetImportLog([FromUri] string masterKey)
+        {
+            return SafeOk(() =>
+            {
+                var dataSet = masterImportService.GetImportLog(masterKey);
+                return dataSet.Tables.Count == 0 ? new List<IDictionary<string, object>>() : ToRows(dataSet.Tables[0]);
+            });
+        }
+
         [HttpPost]
         [Route("Import")]
         public IHttpActionResult Import(MasterImportRequest request)
