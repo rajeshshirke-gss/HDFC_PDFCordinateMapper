@@ -1,9 +1,9 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { finalize } from 'rxjs';
+import { Observable, finalize, tap } from 'rxjs';
 
 import { AuthStore } from '../../../core/auth/auth.store';
 import { MasterImportApiService } from './master-import-api.service';
-import { MasterImportOption, MasterImportResult } from './master-import.models';
+import { MasterImportLogRow, MasterImportOption, MasterImportResult } from './master-import.models';
 
 @Injectable({ providedIn: 'root' })
 export class MasterImportStore {
@@ -13,7 +13,9 @@ export class MasterImportStore {
   private readonly mastersState = signal<MasterImportOption[]>([]);
   private readonly selectedMasterKeyState = signal('');
   private readonly rowsState = signal<Record<string, unknown>[]>([]);
+  private readonly logRowsState = signal<MasterImportLogRow[]>([]);
   private readonly loadingState = signal(false);
+  private readonly logsLoadingState = signal(false);
   private readonly importingState = signal(false);
   private readonly errorMessageState = signal('');
   private readonly lastMessageState = signal('');
@@ -22,7 +24,9 @@ export class MasterImportStore {
   readonly masters = computed(() => this.mastersState());
   readonly selectedMasterKey = computed(() => this.selectedMasterKeyState());
   readonly rows = computed(() => this.rowsState());
+  readonly logRows = computed(() => this.logRowsState());
   readonly loading = computed(() => this.loadingState());
+  readonly logsLoading = computed(() => this.logsLoadingState());
   readonly importing = computed(() => this.importingState());
   readonly errorMessage = computed(() => this.errorMessageState());
   readonly lastMessage = computed(() => this.lastMessageState());
@@ -89,6 +93,20 @@ export class MasterImportStore {
       },
       error: (error: Error) => this.errorMessageState.set(error.message)
     });
+  }
+
+  loadImportLogs(): Observable<MasterImportLogRow[]> {
+    const masterKey = this.selectedMasterKeyState();
+    this.logsLoadingState.set(true);
+    this.clearMessages();
+
+    return this.api.loadImportLogs(masterKey).pipe(
+      tap({
+        next: (rows) => this.logRowsState.set(rows),
+        error: (error: Error) => this.errorMessageState.set(error.message)
+      }),
+      finalize(() => this.logsLoadingState.set(false))
+    );
   }
 
   clearMessages(): void {

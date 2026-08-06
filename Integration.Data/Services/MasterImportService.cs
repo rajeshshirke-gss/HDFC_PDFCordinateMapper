@@ -12,6 +12,7 @@ namespace Integration.Data.Services
     {
         IReadOnlyList<MasterOption> GetMasters();
         DataSet GetMasterData(string masterKey);
+        DataSet GetImportLog(string masterKey);
         MasterImportResult ImportMaster(string masterKey, string importedBy);
         IReadOnlyList<MasterImportResult> ImportAll(string importedBy);
     }
@@ -53,6 +54,42 @@ namespace Integration.Data.Services
                 command.Parameters.Add(new OracleParameter("p_status_cursor", OracleDbType.RefCursor) { Direction = ParameterDirection.Output });
 
                 var dataSet = new DataSet(definition.Key);
+                adapter.Fill(dataSet);
+                return dataSet;
+            }
+        }
+
+        public DataSet GetImportLog(string masterKey)
+        {
+            var definition = definitions.GetDefinition(masterKey);
+
+            using (var connection = Open(definition.TargetConnectionStringName))
+            using (var command = connection.CreateCommand())
+            using (var adapter = new OracleDataAdapter(command))
+            {
+                command.BindByName = true;
+                command.CommandText = "MF_USP_GET_IMPORT_LOG";
+                command.CommandType = CommandType.StoredProcedure;
+                command.CommandTimeout = CommandTimeout();
+
+                command.Parameters.Add(
+                    new OracleParameter(
+                        "p_Master_Id",
+                        OracleDbType.Decimal)
+                    {
+                        Direction = ParameterDirection.Input,
+                        Value = definition.MasterId
+                    });
+
+                command.Parameters.Add(
+                    new OracleParameter(
+                        "cur",
+                        OracleDbType.RefCursor)
+                    {
+                        Direction = ParameterDirection.Output
+                    });
+
+                var dataSet = new DataSet(definition.Key + "_IMPORT_LOG");
                 adapter.Fill(dataSet);
                 return dataSet;
             }

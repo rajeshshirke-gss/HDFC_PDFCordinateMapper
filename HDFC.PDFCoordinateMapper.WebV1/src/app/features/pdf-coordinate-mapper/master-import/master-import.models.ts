@@ -12,3 +12,11 @@ export interface MasterImportResult {
   startedAt: string;
   completedAt: string;
 }
+
+export interface MasterImportLogRow {
+  recordCount: string;
+  status: string;
+  importedBy: string;
+  importDateTime: string;
+  raw: Record<string, unknown>;
+}

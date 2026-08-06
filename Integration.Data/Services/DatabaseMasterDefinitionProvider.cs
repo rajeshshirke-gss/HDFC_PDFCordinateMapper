@@ -22,13 +22,27 @@ namespace Integration.Data.Services
             using (var connection = Open(TargetConnectionStringName()))
             using (var command = connection.CreateCommand())
             {
-                command.CommandText = @"
-SELECT AUTOID, MASTERNAME, SOURCETYPE, TARGETTABLE, BACKUPTABLE, BACKUPFREQUENCY, DBTYPE, QUERY
-FROM MF_MST_MASTER_TYPE
-WHERE ISACTIVE = 'Y'
-ORDER BY MASTERNAME";
-                command.CommandType = CommandType.Text;
+                command.BindByName = true;
+                command.CommandText = "MF_USP_DROPDOWN_DATA";
+                command.CommandType = CommandType.StoredProcedure;
                 command.CommandTimeout = CommandTimeout();
+
+                command.Parameters.Add(
+                    new OracleParameter(
+                        "p_process_name",
+                        OracleDbType.Varchar2)
+                    {
+                        Direction = ParameterDirection.Input,
+                        Value = "ALLDROPDOWN_DATA"
+                    });
+
+                command.Parameters.Add(
+                    new OracleParameter(
+                        "cur",
+                        OracleDbType.RefCursor)
+                    {
+                        Direction = ParameterDirection.Output
+                    });
 
                 using (var reader = command.ExecuteReader())
                 {
@@ -82,14 +96,27 @@ ORDER BY MASTERNAME";
             using (var connection = Open(TargetConnectionStringName()))
             using (var command = connection.CreateCommand())
             {
-                command.CommandText = @"
-SELECT SOURCECOLUMN, DESTINATIONCOLUMN, DATATYPE, ISMANDATORY, DEFAULTVALUE
-FROM MF_MST_MASTER_TYPE_SUB
-WHERE MASTERID = :master_id
-ORDER BY AUTOID";
-                command.CommandType = CommandType.Text;
+                command.BindByName = true;
+                command.CommandText = "MF_USP_GET_MASTER_MAPPINGS";
+                command.CommandType = CommandType.StoredProcedure;
                 command.CommandTimeout = CommandTimeout();
-                command.Parameters.Add(new OracleParameter("master_id", OracleDbType.Decimal) { Value = masterId });
+
+                command.Parameters.Add(
+                    new OracleParameter(
+                        "p_Master_Id",
+                        OracleDbType.Decimal)
+                    {
+                        Direction = ParameterDirection.Input,
+                        Value = masterId
+                    });
+
+                command.Parameters.Add(
+                    new OracleParameter(
+                        "cur",
+                        OracleDbType.RefCursor)
+                    {
+                        Direction = ParameterDirection.Output
+                    });
 
                 using (var reader = command.ExecuteReader())
                 {

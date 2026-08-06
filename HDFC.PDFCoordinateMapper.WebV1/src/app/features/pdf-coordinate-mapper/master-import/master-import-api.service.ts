@@ -4,7 +4,7 @@ import { Observable, catchError, map, throwError } from 'rxjs';
 
 import { API_BASE_URL } from '../../../core/api/api.config';
 import { extractDbMessage } from '../../../core/api/dataset.adapter';
-import { MasterImportOption, MasterImportResult } from './master-import.models';
+import { MasterImportLogRow, MasterImportOption, MasterImportResult } from './master-import.models';
 
 @Injectable({ providedIn: 'root' })
 export class MasterImportApiService {
@@ -22,6 +22,15 @@ export class MasterImportApiService {
       params: { masterKey }
     }).pipe(
       catchError((error) => throwError(() => new Error(errorMessage(error, 'Unable to load master data.'))))
+    );
+  }
+
+  loadImportLogs(masterKey: string): Observable<MasterImportLogRow[]> {
+    return this.http.get<Record<string, unknown>[]>(`${API_BASE_URL}/api/MasterImport/GetImportLog`, {
+      params: { masterKey }
+    }).pipe(
+      map((rows) => rows.map(toImportLogRow)),
+      catchError((error) => throwError(() => new Error(errorMessage(error, 'Unable to load import log.'))))
     );
   }
 
@@ -66,4 +75,24 @@ function toMasterOptions(response: unknown): MasterImportOption[] {
 
 function stringValue(value: unknown): string {
   return value === undefined || value === null ? '' : String(value).trim();
+}
+
+function toImportLogRow(row: Record<string, unknown>): MasterImportLogRow {
+  return {
+    recordCount: stringValue(valueFor(row, 'RECORDCOUNT')),
+    status: stringValue(valueFor(row, 'STATUS')),
+    importedBy: stringValue(valueFor(row, 'IMPORTEDBY')),
+    importDateTime: stringValue(valueFor(row, 'IMPORTDATETIME')),
+    raw: row
+  };
+}
+
+function valueFor(row: Record<string, unknown>, key: string): unknown {
+  if (row[key] !== undefined) {
+    return row[key];
+  }
+
+  const normalizedKey = key.toLowerCase();
+  const match = Object.keys(row).find((rowKey) => rowKey.toLowerCase() === normalizedKey);
+  return match ? row[match] : undefined;
 }

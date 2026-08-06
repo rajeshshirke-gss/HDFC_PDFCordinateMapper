@@ -2,16 +2,19 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { AgGridAngular } from 'ag-grid-angular';
 import { ColDef, ValueGetterParams } from 'ag-grid-community';
+import { take } from 'rxjs';
 
 import { MasterImportStore } from './master-import.store';
+import { MasterImportLogDialog } from './master-import-log.dialog';
 
 @Component({
   selector: 'app-master-import-page',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatIconModule, AgGridAngular],
+  imports: [CommonModule, MatButtonModule, MatDialogModule, MatIconModule, AgGridAngular],
   template: `
     <section class="master-import-page">
       <header class="page-header">
@@ -21,6 +24,11 @@ import { MasterImportStore } from './master-import.store';
         </div>
 
         <div class="header-actions">
+          <button mat-stroked-button type="button" [disabled]="!store.selectedMasterKey() || store.logsLoading() || store.importing()" (click)="viewLog()">
+            <mat-icon>history</mat-icon>
+            View Log
+          </button>
+
           <button mat-flat-button color="primary" class="app-primary-button" type="button" [disabled]="store.loading() || store.importing()" (click)="refresh()">
             <mat-icon>refresh</mat-icon>
             Refresh
@@ -158,6 +166,7 @@ import { MasterImportStore } from './master-import.store';
 export class MasterImportPage implements OnInit {
   readonly store = inject(MasterImportStore);
   private readonly route = inject(ActivatedRoute);
+  private readonly dialog = inject(MatDialog);
 
   readonly defaultColDef: ColDef<Record<string, unknown>> = {
     sortable: true,
@@ -176,6 +185,21 @@ export class MasterImportPage implements OnInit {
 
   refresh(): void {
     this.store.loadData();
+  }
+
+  viewLog(): void {
+    this.store.loadImportLogs().pipe(take(1)).subscribe({
+      next: (rows) => {
+        this.dialog.open(MasterImportLogDialog, {
+          width: '860px',
+          maxWidth: '92vw',
+          data: {
+            masterName: this.store.selectedMaster()?.name || 'Master',
+            rows
+          }
+        });
+      }
+    });
   }
 
   importSelected(): void {
