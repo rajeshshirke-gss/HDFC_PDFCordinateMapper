@@ -6,6 +6,8 @@ export interface TemplateMasterRecord {
   autoId: string;
   mstColId: string;
   templateCode: string;
+  amcCode: string;
+  amcName: string;
   templateName: string;
   templateDescription: string;
   originalFileName: string;
@@ -44,6 +46,7 @@ export interface TemplateUploadResult {
 
 export interface TemplateMasterFormValue {
   templateCode: string;
+  amcCode: string;
   templateName: string;
   templateDescription: string;
   originalFileName: string;
@@ -59,6 +62,12 @@ export interface TemplateMasterFormValue {
   isDigitallySigned: string;
   digitalSignatureDetails: string;
   active: string;
+}
+
+export interface TemplateMasterAmcOption {
+  amcCode: string;
+  amcName: string;
+  raw: Record<string, unknown>;
 }
 
 export interface TemplateMasterListSnapshot {

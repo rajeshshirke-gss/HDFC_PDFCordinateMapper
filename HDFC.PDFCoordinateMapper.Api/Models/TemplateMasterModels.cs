@@ -6,6 +6,8 @@ namespace HDFC.PDFCoordinateMapper.Api.Models
         public string Auto_Id { get; set; }
         public string Mst_Col_Id { get; set; }
         public string Template_Code { get; set; }
+        public string Amc_Code { get; set; }
+        public string Amc_Name { get; set; }
         public string Template_Name { get; set; }
         public string Template_Description { get; set; }
         public string Original_File_Name { get; set; }

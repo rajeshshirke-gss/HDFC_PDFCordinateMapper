@@ -10,7 +10,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { finalize } from 'rxjs';
 
 import { TemplateMasterApiService } from './template-master-api.service';
-import { TemplateMasterDialogData, TemplateMasterFormValue, TemplateUploadResult } from './template-master.models';
+import { TemplateMasterAmcOption, TemplateMasterDialogData, TemplateMasterFormValue, TemplateUploadResult } from './template-master.models';
 
 @Component({
   selector: 'app-template-master-form-dialog',
@@ -29,10 +29,19 @@ import { TemplateMasterDialogData, TemplateMasterFormValue, TemplateUploadResult
         <section>
           <h3>Template</h3>
           <div class="form-grid">
-            <mat-form-field appearance="outline">
+            <!-- <mat-form-field appearance="outline">
               <mat-label>Template Code</mat-label>
               <input matInput formControlName="templateCode" maxlength="100" />
               <mat-error>Template Code is required.</mat-error>
+            </mat-form-field> -->
+            <mat-form-field appearance="outline">
+              <mat-label>AMC Name</mat-label>
+              <mat-select formControlName="amcCode">
+                <mat-option *ngFor="let amc of amcOptions()" [value]="amc.amcName">
+                  {{ amc.amcName }}
+                </mat-option>
+              </mat-select>
+              <mat-error>AMC Name is required.</mat-error>
             </mat-form-field>
 
             <mat-form-field appearance="outline">
@@ -129,9 +138,14 @@ import { TemplateMasterDialogData, TemplateMasterFormValue, TemplateUploadResult
     <mat-dialog-actions align="end">
       <button mat-button type="button" (click)="close()">Close</button>
       @if (data.mode !== 'view') {
-        <button mat-flat-button color="primary" type="button" [disabled]="form.invalid || uploading()" (click)="submit()">
+        <button mat-button type="button" [disabled]="uploading()" (click)="clear()">Clear</button>
+      }
+      @if (data.mode !== 'view') {
+        @if (form.valid && !uploading()) {
+        <button mat-flat-button color="primary" type="button" (click)="submit()">
           {{ data.mode === 'create' ? 'Submit for Approval' : 'Submit Update for Approval' }}
         </button>
+        }
       }
     </mat-dialog-actions>
   `,
@@ -213,9 +227,12 @@ export class TemplateMasterFormDialog {
   readonly uploading = signal(false);
   readonly uploadError = signal('');
   readonly pageOptions = signal<number[]>([]);
+  readonly amcOptions = signal<TemplateMasterAmcOption[]>([]);
 
   readonly form = this.fb.nonNullable.group({
-    templateCode: ['', [Validators.required, Validators.maxLength(100)]],
+    templateCode: ['', Validators.maxLength(100)],
+    amcCode: ['', [Validators.required, Validators.maxLength(100)]],
+    amcName: [''],
     templateName: ['', [Validators.required, Validators.maxLength(500)]],
     templateDescription: [''],
     originalFileName: ['', Validators.required],
@@ -245,6 +262,8 @@ export class TemplateMasterFormDialog {
       this.setPageOptions(pageCount);
       this.form.patchValue({
         templateCode: this.data.record.templateCode,
+        amcCode: this.data.record.amcName || this.data.record.amcCode,
+        amcName: this.data.record.amcName,
         templateName: this.data.record.templateName,
         templateDescription: this.data.record.templateDescription,
         originalFileName: this.data.record.originalFileName,
@@ -262,6 +281,12 @@ export class TemplateMasterFormDialog {
         active: normalizeActive(this.data.record.active)
       });
     }
+    this.api.getAmcDropdown().subscribe((res) => {
+      this.amcOptions.set(res);
+      if (!this.form.controls.amcCode.value && res.length === 1) {
+        this.form.controls.amcCode.setValue(res[0].amcName);
+      }
+    });
 
     if (this.data.mode !== 'create') {
       this.form.controls.originalFileName.disable();
@@ -277,6 +302,7 @@ export class TemplateMasterFormDialog {
       this.form.disable();
     }
   }
+  
 
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
@@ -316,6 +342,31 @@ export class TemplateMasterFormDialog {
 
   close(): void {
     this.dialogRef.close();
+  }
+
+  clear(): void {
+    this.uploadError.set('');
+    this.pageOptions.set([]);
+    this.form.reset({
+      templateCode: '',
+      amcCode: '',
+      amcName: '',
+      templateName: '',
+      templateDescription: '',
+      originalFileName: '',
+      storedFileName: '',
+      filePath: '',
+      fileHash: '',
+      fileSizeBytes: '',
+      mimeType: 'application/pdf',
+      pdfPageCount: '',
+      mappingPages: [],
+      printPages: [],
+      repeatRowsPerPage: '1',
+      isDigitallySigned: 'N',
+      digitalSignatureDetails: '',
+      active: 'Y'
+    });
   }
 
   private patchUpload(result: TemplateUploadResult): void {

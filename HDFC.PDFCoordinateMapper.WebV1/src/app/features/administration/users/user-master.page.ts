@@ -447,7 +447,7 @@ const hiddenResponseFields = new Set(['autoid', 'moduleid', 'moduleaccessid', 'p
 const headerLabels: Record<string, string> = {
   autoid: 'Auto ID',
   userid: 'User ID',
-  groupid: 'Group ID',
+  // groupid: 'Group ID',
   rolename: 'Role Name',
   username: 'User Name',
   email: 'Email',

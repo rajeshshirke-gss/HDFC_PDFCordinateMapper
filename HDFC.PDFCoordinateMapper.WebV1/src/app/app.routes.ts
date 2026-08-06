@@ -57,9 +57,33 @@ export const routes: Routes = [
       },
       {
         path: 'pdf-coordinate-mapper/amc-master',
+        loadComponent: () =>
+          import('./features/pdf-coordinate-mapper/master-import/master-import.page').then(
+            (m) => m.MasterImportPage,
+          ),
+        data: { masterKey: 'AMC' },
+      },
+      {
+        path: 'pdf-coordinate-mapper/client-master',
+        loadComponent: () =>
+          import('./features/pdf-coordinate-mapper/master-import/master-import.page').then(
+            (m) => m.MasterImportPage,
+          ),
+        data: { masterKey: 'CLIENT' },
+      },
+      {
+        path: 'pdf-coordinate-mapper/isin-master',
+        loadComponent: () =>
+          import('./features/pdf-coordinate-mapper/master-import/master-import.page').then(
+            (m) => m.MasterImportPage,
+          ),
+        data: { masterKey: 'ISIN' },
+      },
+      {
+        path: 'pdf-coordinate-mapper/master-import',
         loadChildren: () =>
-          import('./features/pdf-coordinate-mapper/amc-master/amc-master.routes').then(
-            (m) => m.amcMasterRoutes,
+          import('./features/pdf-coordinate-mapper/master-import/master-import.routes').then(
+            (m) => m.masterImportRoutes,
           ),
       },
       {

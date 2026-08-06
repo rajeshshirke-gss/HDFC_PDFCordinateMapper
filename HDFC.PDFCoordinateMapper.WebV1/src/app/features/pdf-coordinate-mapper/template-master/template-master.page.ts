@@ -165,13 +165,25 @@ import { TemplateMasterStore } from './template-master.store';
       text-align: center;
     }
 
+    :host ::ng-deep .grid-actions {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 5px;
+      width: 100%;
+      height: 100%;
+    }
+
+    :host ::ng-deep .grid-actions.single {
+      justify-content: center;
+    }
+
     :host ::ng-deep .grid-action {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       width: 30px;
       height: 30px;
-      margin-right: 5px;
       border: 1px solid var(--app-grid-border);
       border-radius: 4px;
       background: var(--app-surface);
@@ -206,7 +218,7 @@ export class TemplateMasterPage implements OnInit {
     floatingFilter: true,
     resizable: true
   };
-  readonly columnDefs = computed<ColDef<TemplateMasterRecord>[]>(() => buildColumnDefs(this.activeRows()));
+  readonly columnDefs = computed<ColDef<TemplateMasterRecord>[]>(() => buildColumnDefs(this.activeRows(), this.store.activeView()));
 
   ngOnInit(): void {
     this.store.loadTemplates();
@@ -254,13 +266,13 @@ export class TemplateMasterPage implements OnInit {
       if (!value || mode === 'view') return;
       const title = mode === 'create' ? 'Create Template' : 'Update Template';
       const message = mode === 'create'
-        ? `Submit template ${value.templateCode} for approval?`
+        ? `Submit template ${value.templateCode || value.templateName} for approval?`
         : `Submit update for template ${record?.templateCode}?`;
       this.dialog.open(ConfirmDialogComponent, {
         width: '440px',
         data: { title, message, confirmText: mode === 'create' ? 'Submit' : 'Submit Update' }
       }).afterClosed().pipe(take(1), filter(Boolean)).subscribe(() => {
-        const onSuccess = () => this.snackBar.open(this.store.lastMessage() || 'Template request submitted.', 'Close', { duration: 5000 });
+        const onSuccess = () => this.snackBar.open(this.store.lastMessage() || 'Template request submitted.', 'Close', { duration: 4000 });
         if (mode === 'create') {
           this.store.createTemplate(value, onSuccess);
         } else if (record) {
@@ -283,10 +295,12 @@ export class TemplateMasterPage implements OnInit {
   }
 }
 
-const hiddenResponseFields = new Set(['file_path', 'filepath', 'stored_file_name', 'storedfilename']);
+const hiddenResponseFields = new Set(['autoid', 'templatecode', 'file_path', 'filepath', 'stored_file_name', 'storedfilename']);
+const leadingResponseFields = ['amcname'];
+const auditResponseFields = ['createdby', 'createddate', 'modifiedby', 'modifieddate', 'approvedby', 'approveddate'];
 
-function buildColumnDefs(rows: TemplateMasterRecord[]): ColDef<TemplateMasterRecord>[] {
-  return [actionColumn(), ...orderedResponseKeys(rows).map((key) => ({
+function buildColumnDefs(rows: TemplateMasterRecord[], view: TemplateMasterView): ColDef<TemplateMasterRecord>[] {
+  return [actionColumn(view), ...orderedResponseKeys(rows).map((key) => ({
     headerName: headerFor(key),
     colId: key,
     minWidth: widthFor(key),
@@ -299,28 +313,37 @@ function orderedResponseKeys(rows: TemplateMasterRecord[]): string[] {
   const seen = new Set<string>();
   for (const row of rows) {
     for (const key of Object.keys(row.raw)) {
-      const normalized = key.toLowerCase();
+      const normalized = normalizeKey(key);
       if (hiddenResponseFields.has(normalized) || seen.has(key)) continue;
       seen.add(key);
       keys.push(key);
     }
   }
-  return keys;
+
+  const byNormalizedKey = new Map(keys.map((key) => [normalizeKey(key), key]));
+  const leading = leadingResponseFields.map((key) => byNormalizedKey.get(key)).filter(isPresent);
+  const audit = auditResponseFields.map((key) => byNormalizedKey.get(key)).filter(isPresent);
+  const reserved = new Set([...leading, ...audit]);
+  return [...leading, ...keys.filter((key) => !reserved.has(key) && !auditResponseFields.includes(normalizeKey(key))), ...audit];
 }
 
-function actionColumn(): ColDef<TemplateMasterRecord> {
+function actionColumn(view: TemplateMasterView): ColDef<TemplateMasterRecord> {
   return {
     headerName: 'Actions',
-    width: 182,
+    width: view === 'approved' ? 96 : 182,
     pinned: 'left',
     sortable: false,
     filter: false,
-    cellRenderer: () => `
-      <button class="grid-action" data-action="view" title="View" aria-label="View"><span class="material-icons">visibility</span></button>
-      <button class="grid-action" data-action="edit" title="Edit" aria-label="Edit"><span class="material-icons">edit</span></button>
-      <button class="grid-action" data-action="preview" title="Preview PDF" aria-label="Preview PDF"><span class="material-icons">picture_as_pdf</span></button>
-      <button class="grid-action delete" data-action="delete" title="Delete" aria-label="Delete"><span class="material-icons">delete</span></button>
-    `
+    cellRenderer: () => view === 'approved'
+      ? `<div class="grid-actions single"><button class="grid-action" data-action="view" title="View" aria-label="View"><span class="material-icons">visibility</span></button></div>`
+      : `
+        <div class="grid-actions">
+          <button class="grid-action" data-action="view" title="View" aria-label="View"><span class="material-icons">visibility</span></button>
+          <button class="grid-action" data-action="edit" title="Edit" aria-label="Edit"><span class="material-icons">edit</span></button>
+          <button class="grid-action" data-action="preview" title="Preview PDF" aria-label="Preview PDF"><span class="material-icons">picture_as_pdf</span></button>
+          <button class="grid-action delete" data-action="delete" title="Delete" aria-label="Delete"><span class="material-icons">delete</span></button>
+        </div>
+      `
   };
 }
 
@@ -337,4 +360,12 @@ function widthFor(key: string): number {
 
 function formatCellValue(value: unknown): string {
   return value === undefined || value === null ? '' : String(value);
+}
+
+function normalizeKey(key: string): string {
+  return key.replace(/[^a-z0-9]/gi, '').toLowerCase();
+}
+
+function isPresent(value: string | undefined): value is string {
+  return !!value;
 }

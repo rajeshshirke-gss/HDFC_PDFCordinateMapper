@@ -15,7 +15,7 @@ import { MenuNode } from '../auth/auth.models';
   standalone: true,
   imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, MatButtonModule, MatIconModule, MatToolbarModule, MatSnackBarModule],
   template: `
-    <section class="app-shell" [class.sidebar-collapsed]="isSidebarCollapsed" [class.has-sidebar]="hasSidebarMenu()">
+    <section class="app-shell" [class.sidebar-collapsed]="isSidebarCollapsed" [class.workspace-route]="isWorkspaceRoute()" [class.has-sidebar]="hasSidebarMenu()">
       <mat-toolbar class="topbar">
         @if (hasSidebarMenu()) {
           <button mat-icon-button type="button" (click)="toggleSidebar()" [attr.aria-label]="isSidebarCollapsed ? 'Expand menu' : 'Collapse menu'">
@@ -167,6 +167,10 @@ import { MenuNode } from '../auth/auth.models';
       grid-template-columns: 72px minmax(0, 1fr);
     }
 
+    .has-sidebar.workspace-route .shell-body {
+      grid-template-columns: 72px minmax(0, 1fr);
+    }
+
     .sidebar {
       position: relative;
       padding: 16px 12px;
@@ -206,7 +210,7 @@ import { MenuNode } from '../auth/auth.models';
 
     .menu-item:hover,
     .menu-item.active {
-      border-left-color: var(--app-primary);
+      border-left-color: transparent;
       background: var(--app-primary-soft);
       color: var(--app-primary-dark);
     }
@@ -240,8 +244,16 @@ import { MenuNode } from '../auth/auth.models';
       padding: 8px;
     }
 
+    .workspace-route .menu-item {
+      justify-content: center;
+      padding: 8px;
+    }
+
     .sidebar-collapsed .menu-label,
-    .sidebar-collapsed .expand-icon {
+    .sidebar-collapsed .expand-icon,
+    .workspace-route .menu-label,
+    .workspace-route .expand-icon,
+    .workspace-route .children {
       display: none;
     }
 
@@ -324,6 +336,11 @@ export class ApplicationShellComponent implements OnInit {
 
   hasSidebarMenu(): boolean {
     return Boolean(this.authStore.selectedModuleId() && this.authStore.menu().length);
+  }
+
+  isWorkspaceRoute(): boolean {
+    return this.router.url === '/pdf-coordinate-mapper/template-mapping/create' ||
+      /^\/pdf-coordinate-mapper\/template-mapping\/[^/]+\/(edit|view)$/.test(this.router.url);
   }
 
   logout(): void {

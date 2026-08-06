@@ -6,6 +6,7 @@ using HDFC.PDFCoordinateMapper.Api.Configuration;
 using HDFC.PDFCoordinateMapper.Api.Database;
 using HDFC.PDFCoordinateMapper.Api.Services;
 using HDFC.PDFCoordinateMapper.Api.Utilities;
+using Integration.Data.Services;
 using Unity;
 
 namespace HDFC.PDFCoordinateMapper.Api.App_Start
@@ -22,6 +23,7 @@ namespace HDFC.PDFCoordinateMapper.Api.App_Start
             container.RegisterType<ICommonApprovalService, CommonApprovalService>();
             container.RegisterType<IMenuService, MenuService>();
             container.RegisterType<IMfCommonApprovalService, MfCommonApprovalService>();
+            container.RegisterType<IMasterImportService, MasterImportService>();
             container.RegisterType<IPdfCoordinateService, PdfCoordinateService>();
             container.RegisterType<IRoleMasterService, RoleMasterService>();
             container.RegisterType<IRoleModuleMappingService, RoleModuleMappingService>();

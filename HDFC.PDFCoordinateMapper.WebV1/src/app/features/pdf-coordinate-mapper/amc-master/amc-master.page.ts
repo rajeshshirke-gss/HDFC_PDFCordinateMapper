@@ -6,15 +6,14 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { AgGridAngular } from 'ag-grid-angular';
 import { CellClickedEvent, ColDef, ValueGetterParams } from 'ag-grid-community';
-import { filter, take } from 'rxjs';
+import { take } from 'rxjs';
 
-import { ConfirmDialogComponent } from '../../../shared/confirm-dialog.component';
 import { AmcMasterFormDialog } from './amc-master-form.dialog';
-import { AmcMasterFormValue, AmcMasterRecord } from './amc-master.models';
+import { AmcMasterRecord } from './amc-master.models';
 import { AmcMasterStore } from './amc-master.store';
 
 @Component({
@@ -45,10 +44,6 @@ import { AmcMasterStore } from './amc-master.store';
             <button mat-flat-button color="primary" class="app-primary-button" type="button" (click)="refresh()">
               <mat-icon>refresh</mat-icon>
               Refresh
-            </button>
-            <button mat-flat-button color="primary" class="app-primary-button" type="button" (click)="openCreate()">
-              <mat-icon>add</mat-icon>
-              Add AMC
             </button>
           </div>
         </div>
@@ -191,7 +186,6 @@ export class AmcMasterPage implements OnInit {
   readonly store = inject(AmcMasterStore);
 
   private readonly dialog = inject(MatDialog);
-  private readonly snackBar = inject(MatSnackBar);
 
   readonly activeRows = computed(() => this.store.activeRows());
   readonly defaultColDef: ColDef<AmcMasterRecord> = {
@@ -224,50 +218,15 @@ export class AmcMasterPage implements OnInit {
     const record = event.data;
     if (!action || !record) return;
     if (action === 'view') this.openForm('view', record);
-    if (action === 'edit') this.openForm('edit', record);
-    if (action === 'delete') this.confirmDelete(record);
   }
 
-  openCreate(): void {
-    this.openForm('create', null);
-  }
-
-  private openForm(mode: 'create' | 'edit' | 'view', record: AmcMasterRecord | null): void {
+  private openForm(mode: 'view', record: AmcMasterRecord | null): void {
     this.dialog.open(AmcMasterFormDialog, {
       width: '860px',
       maxWidth: '96vw',
       disableClose: mode !== 'view',
-      data: { mode, record, submitting: this.store.submitting() }
-    }).afterClosed().pipe(take(1)).subscribe((value?: AmcMasterFormValue) => {
-      if (!value || mode === 'view') return;
-      const title = mode === 'create' ? 'Create AMC' : 'Update AMC';
-      const message = mode === 'create'
-        ? `Submit AMC ${value.amcCode} for approval?`
-        : `Submit update for AMC ${record?.amcCode}?`;
-      this.dialog.open(ConfirmDialogComponent, {
-        width: '440px',
-        data: { title, message, confirmText: mode === 'create' ? 'Submit' : 'Submit Update' }
-      }).afterClosed().pipe(take(1), filter(Boolean)).subscribe(() => {
-        const onSuccess = () => this.snackBar.open(this.store.lastMessage() || 'AMC request submitted.', 'Close', { duration: 5000 });
-        if (mode === 'create') {
-          this.store.createAmc(value, onSuccess);
-        } else if (record) {
-          this.store.updateAmc(record, value, onSuccess);
-        }
-      });
-    });
-  }
-
-  private confirmDelete(record: AmcMasterRecord): void {
-    this.dialog.open(ConfirmDialogComponent, {
-      width: '420px',
-      data: {
-        title: 'Delete AMC',
-        message: `Submit delete request for ${record.amcName || record.amcCode}?`,
-        confirmText: 'Submit Delete',
-        danger: true
-      }
-    }).afterClosed().pipe(take(1), filter(Boolean)).subscribe(() => this.store.deleteAmc(record));
+      data: { record }
+    }).afterClosed().pipe(take(1)).subscribe();
   }
 }
 
@@ -299,14 +258,12 @@ function orderedResponseKeys(rows: AmcMasterRecord[]): string[] {
 function actionColumn(): ColDef<AmcMasterRecord> {
   return {
     headerName: 'Actions',
-    width: 136,
+    width: 84,
     pinned: 'left',
     sortable: false,
     filter: false,
     cellRenderer: () => `
       <button class="grid-action" data-action="view" title="View" aria-label="View"><span class="material-icons">visibility</span></button>
-      <button class="grid-action" data-action="edit" title="Edit" aria-label="Edit"><span class="material-icons">edit</span></button>
-      <button class="grid-action delete" data-action="delete" title="Delete" aria-label="Delete"><span class="material-icons">delete</span></button>
     `
   };
 }

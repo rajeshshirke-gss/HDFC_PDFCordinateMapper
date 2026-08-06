@@ -1,11 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
@@ -20,21 +17,12 @@ import { MfCommonApprovalStore } from './mf-common-approval.store';
 @Component({
   selector: 'app-mf-common-approval-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatDialogModule, MatFormFieldModule, MatIconModule, MatSelectModule, MatSnackBarModule, AgGridAngular],
+  imports: [CommonModule, MatButtonModule, MatDialogModule, MatIconModule, MatSnackBarModule, AgGridAngular],
   template: `
     <section class="approval-page">
       <header class="page-header">
         <h1>PDF Module Common Approval</h1>
         <div class="header-actions">
-          <mat-form-field appearance="outline" class="master-select">
-            <mat-label>Master</mat-label>
-            <mat-select [ngModel]="store.selectedMaster()" (ngModelChange)="selectMaster($event)">
-              <mat-option value="">All Masters</mat-option>
-              @for (master of store.masters(); track master) {
-                <mat-option [value]="master">{{ master }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
           <button mat-flat-button color="primary" class="app-primary-button" type="button" (click)="refresh()">
             <mat-icon>refresh</mat-icon>
             Refresh
@@ -100,10 +88,6 @@ import { MfCommonApprovalStore } from './mf-common-approval.store';
       font-weight: 700;
     }
 
-    .master-select {
-      width: 260px;
-    }
-
     .message-strip {
       display: grid;
       gap: 8px;
@@ -153,13 +137,22 @@ import { MfCommonApprovalStore } from './mf-common-approval.store';
       text-align: center;
     }
 
+    :host ::ng-deep .grid-actions {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 6px;
+      width: 100%;
+      height: 100%;
+      white-space: nowrap;
+    }
+
     :host ::ng-deep .grid-action {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       width: 30px;
       height: 30px;
-      margin-right: 5px;
       border: 1px solid var(--app-grid-border);
       border-radius: 4px;
       background: var(--app-surface);
@@ -167,6 +160,12 @@ import { MfCommonApprovalStore } from './mf-common-approval.store';
       cursor: pointer;
       font-size: 18px;
       line-height: 1;
+    }
+
+    :host ::ng-deep .grid-action[disabled] {
+      opacity: 0.38;
+      cursor: not-allowed;
+      color: var(--app-muted);
     }
 
     :host ::ng-deep .grid-action.reject {
@@ -199,12 +198,7 @@ export class MfCommonApprovalPage implements OnInit {
   readonly columnDefs = computed<ColDef<MfCommonApprovalRecord>[]>(() => buildColumnDefs(this.store.pending()));
 
   ngOnInit(): void {
-    this.store.loadMasters();
     this.store.loadPending();
-  }
-
-  selectMaster(masterName: string): void {
-    this.store.setSelectedMaster(masterName);
   }
 
   refresh(): void {
@@ -251,7 +245,7 @@ export class MfCommonApprovalPage implements OnInit {
   }
 }
 
-const hiddenResponseFields = new Set(['auto_id', 'tbl_auto_id']);
+const hiddenResponseFields = new Set(['commonapprovalid', 'tableautoid', 'autoid', 'autoid1', 'tblautoid']);
 
 function buildColumnDefs(rows: MfCommonApprovalRecord[]): ColDef<MfCommonApprovalRecord>[] {
   return [actionColumn(), ...orderedResponseKeys(rows).map((key) => ({
@@ -267,7 +261,7 @@ function orderedResponseKeys(rows: MfCommonApprovalRecord[]): string[] {
   const seen = new Set<string>();
   for (const row of rows) {
     for (const key of Object.keys(row.raw)) {
-      const normalized = key.toLowerCase();
+      const normalized = normalizeKey(key);
       if (hiddenResponseFields.has(normalized) || seen.has(key)) continue;
       seen.add(key);
       keys.push(key);
@@ -279,19 +273,19 @@ function orderedResponseKeys(rows: MfCommonApprovalRecord[]): string[] {
 function actionColumn(): ColDef<MfCommonApprovalRecord> {
   return {
     headerName: 'Actions',
-    width: 180,
+    width: 184,
     pinned: 'left',
     sortable: false,
     filter: false,
     cellRenderer: ({ data }: ICellRendererParams<MfCommonApprovalRecord>) => {
-      const previewAction = data?.masterName === 'Template Mapping Master'
-        ? '<button class="grid-action" data-action="preview" title="Preview Mapping" aria-label="Preview Mapping"><span class="material-icons">preview</span></button>'
-        : '';
+      const previewDisabled = data?.masterName === 'Template Mapping Master' ? '' : ' disabled';
       return `
-        <button class="grid-action" data-action="view" title="View" aria-label="View"><span class="material-icons">visibility</span></button>
-        ${previewAction}
-        <button class="grid-action approve" data-action="approve" title="Approve" aria-label="Approve"><span class="material-icons">check_circle</span></button>
-        <button class="grid-action reject" data-action="reject" title="Reject" aria-label="Reject"><span class="material-icons">cancel</span></button>
+        <div class="grid-actions">
+          <button class="grid-action approve" data-action="approve" title="Approve" aria-label="Approve"><span class="material-icons">check_circle</span></button>
+          <button class="grid-action reject" data-action="reject" title="Reject" aria-label="Reject"><span class="material-icons">cancel</span></button>
+          <button class="grid-action" data-action="view" title="View" aria-label="View"><span class="material-icons">visibility</span></button>
+          <button class="grid-action" data-action="preview" title="Preview Mapping" aria-label="Preview Mapping"${previewDisabled}><span class="material-icons">preview</span></button>
+        </div>
       `;
     }
   };
@@ -310,4 +304,8 @@ function widthFor(key: string): number {
 
 function formatCellValue(value: unknown): string {
   return value === undefined || value === null ? '' : String(value);
+}
+
+function normalizeKey(key: string): string {
+  return key.replace(/[^a-z0-9]/gi, '').toLowerCase();
 }

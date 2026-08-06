@@ -45,12 +45,15 @@ import { TemplateMappingRecord, TemplateMappingView } from './template-mapping.m
         @if (errorMessage()) {
           <p class="alert error">{{ errorMessage() }}</p>
         }
+        @if (lastMessage()) {
+          <p class="alert success">{{ lastMessage() }}</p>
+        }
       </div>
 
       <div class="grid-shell ag-theme-quartz">
         <ag-grid-angular
           [rowData]="activeRows()"
-          [columnDefs]="columnDefs"
+          [columnDefs]="columnDefs()"
           [defaultColDef]="defaultColDef"
           [pagination]="true"
           [paginationPageSize]="25"
@@ -98,12 +101,21 @@ import { TemplateMappingRecord, TemplateMappingView } from './template-mapping.m
     .alert {
       margin: 0;
       padding: 10px 12px;
-      border-left: 3px solid var(--mat-sys-tertiary);
       border-radius: calc(var(--app-control-radius) - 2px);
-      background: var(--mat-sys-tertiary-container);
-      color: var(--mat-sys-on-tertiary-container);
       font-size: 13px;
       font-weight: 600;
+    }
+
+    .alert.error {
+      border-left: 3px solid var(--mat-sys-tertiary);
+      background: var(--mat-sys-tertiary-container);
+      color: var(--mat-sys-on-tertiary-container);
+    }
+
+    .alert.success {
+      border-left: 3px solid #16833a;
+      background: #effaf2;
+      color: #11612d;
     }
 
     .message-strip {
@@ -135,13 +147,25 @@ import { TemplateMappingRecord, TemplateMappingView } from './template-mapping.m
       text-align: center;
     }
 
+    :host ::ng-deep .grid-actions {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 5px;
+      width: 100%;
+      height: 100%;
+    }
+
+    :host ::ng-deep .grid-actions.single {
+      justify-content: center;
+    }
+
     :host ::ng-deep .grid-action {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       width: 30px;
       height: 30px;
-      margin-right: 5px;
       border: 1px solid var(--app-grid-border);
       border-radius: 4px;
       background: var(--app-surface);
@@ -173,9 +197,11 @@ export class TemplateMappingPage implements OnInit {
   readonly activeView = signal<TemplateMappingView>('all');
   readonly loading = signal(false);
   readonly errorMessage = signal('');
+  readonly lastMessage = signal('');
   readonly activeRows = computed(() => this.activeView() === 'approved' ? this.approvedMappings() : this.mappings());
-  readonly columnDefs: ColDef<TemplateMappingRecord>[] = [
-    actionColumn(),
+  private messageTimer: ReturnType<typeof setTimeout> | null = null;
+  readonly columnDefs = computed<ColDef<TemplateMappingRecord>[]>(() => [
+    actionColumn(this.activeView()),
     { headerName: 'Mapping Code', field: 'mappingCode', minWidth: 160 },
     { headerName: 'Mapping Name', field: 'mappingName', minWidth: 220 },
     { headerName: 'Template', field: 'templateName', minWidth: 220 },
@@ -183,8 +209,12 @@ export class TemplateMappingPage implements OnInit {
     { headerName: 'Status', field: 'status', width: 120, valueFormatter: ({ value }) => formatStatus(value) },
     { headerName: 'Action', field: 'action', width: 130 },
     { headerName: 'Maker', field: 'createdBy', minWidth: 150 },
-    { headerName: 'Created Date', field: 'createdDate', minWidth: 190 }
-  ];
+    { headerName: 'Created Date', field: 'createdDate', minWidth: 190 },
+    { headerName: 'Modified By', field: 'modifiedBy', minWidth: 150 },
+    { headerName: 'Modified Date', field: 'modifiedDate', minWidth: 190 },
+    { headerName: 'Approved By', field: 'approvedBy', minWidth: 150 },
+    { headerName: 'Approved Date', field: 'approvedDate', minWidth: 190 }
+  ]);
   readonly defaultColDef: ColDef<TemplateMappingRecord> = {
     sortable: true,
     filter: 'agTextColumnFilter',
@@ -206,7 +236,7 @@ export class TemplateMappingPage implements OnInit {
         this.loading.set(false);
       },
       error: (error: Error) => {
-        this.errorMessage.set(error.message);
+        this.setErrorMessage(error.message);
         this.loading.set(false);
       }
     });
@@ -241,12 +271,52 @@ export class TemplateMappingPage implements OnInit {
     }).afterClosed().pipe(take(1), filter(Boolean)).subscribe(() => {
       this.api.deleteMapping(record, this.currentUser()).subscribe({
         next: (result) => {
-          this.snackBar.open(result.message, 'Close', { duration: 5000 });
+          this.setLastMessage(result.message);
+          this.snackBar.open(result.message, 'Close', { duration: 4000 });
           this.loadMappings();
         },
-        error: (error: Error) => this.errorMessage.set(error.message)
+        error: (error: Error) => this.setErrorMessage(error.message)
       });
     });
+  }
+
+  private clearMessages(): void {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+      this.messageTimer = null;
+    }
+    this.errorMessage.set('');
+    this.lastMessage.set('');
+  }
+
+  private setErrorMessage(message: string): void {
+    this.errorMessage.set(message);
+    this.lastMessage.set('');
+    this.scheduleMessageClear(message, 'error');
+  }
+
+  private setLastMessage(message: string): void {
+    this.lastMessage.set(message);
+    this.errorMessage.set('');
+    this.scheduleMessageClear(message, 'success');
+  }
+
+  private scheduleMessageClear(message: string, type: 'error' | 'success'): void {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+    }
+
+    this.messageTimer = setTimeout(() => {
+      if (type === 'error' && this.errorMessage() === message) {
+        this.errorMessage.set('');
+      }
+
+      if (type === 'success' && this.lastMessage() === message) {
+        this.lastMessage.set('');
+      }
+
+      this.messageTimer = null;
+    }, 4000);
   }
 
   private currentUser(): string {
@@ -255,18 +325,22 @@ export class TemplateMappingPage implements OnInit {
   }
 }
 
-function actionColumn(): ColDef<TemplateMappingRecord> {
+function actionColumn(view: TemplateMappingView): ColDef<TemplateMappingRecord> {
   return {
     headerName: 'Actions',
-    width: 136,
+    width: view === 'approved' ? 96 : 136,
     pinned: 'left',
     sortable: false,
     filter: false,
-    cellRenderer: () => `
-      <button class="grid-action" data-action="view" title="View" aria-label="View"><span class="material-icons">visibility</span></button>
-      <button class="grid-action" data-action="edit" title="Edit" aria-label="Edit"><span class="material-icons">edit</span></button>
-      <button class="grid-action delete" data-action="delete" title="Delete" aria-label="Delete"><span class="material-icons">delete</span></button>
-    `
+    cellRenderer: () => view === 'approved'
+      ? `<div class="grid-actions single"><button class="grid-action" data-action="view" title="View" aria-label="View"><span class="material-icons">visibility</span></button></div>`
+      : `
+        <div class="grid-actions">
+          <button class="grid-action" data-action="view" title="View" aria-label="View"><span class="material-icons">visibility</span></button>
+          <button class="grid-action" data-action="edit" title="Edit" aria-label="Edit"><span class="material-icons">edit</span></button>
+          <button class="grid-action delete" data-action="delete" title="Delete" aria-label="Delete"><span class="material-icons">delete</span></button>
+        </div>
+      `
   };
 }
 

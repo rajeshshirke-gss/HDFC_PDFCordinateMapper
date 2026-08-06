@@ -11,13 +11,19 @@ export interface TemplateMappingRecord {
   mstColId: string;
   mappingCode: string;
   mappingName: string;
+  amcName: string;
   templateId: string;
+  templateCode: string;
   templateName: string;
   fieldCount: string;
   status: string;
   action: string;
   createdBy: string;
   createdDate: string;
+  modifiedBy: string;
+  modifiedDate: string;
+  approvedBy: string;
+  approvedDate: string;
 }
 
 export interface TemplateMappingListSnapshot {

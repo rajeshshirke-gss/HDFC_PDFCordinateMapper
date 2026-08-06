@@ -159,7 +159,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mj
               <button mat-icon-button type="button" matTooltip="Previous page" (click)="previousPage($event)">
                 <mat-icon>chevron_left</mat-icon>
               </button>
-              <mat-form-field appearance="outline" class="page-select" style="width: 190px;">
+              <mat-form-field appearance="outline" class="page-select" subscriptSizing="dynamic" style="width: 190px;">
                 <mat-label>Page</mat-label>
                 <mat-select [ngModel]="selectedPageNo()" (ngModelChange)="selectPageFromToolbar($event)">
                   @for (page of pageStatuses(); track page.pageNo) {
@@ -184,11 +184,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mj
               </button>
             </div>
             <div class="tool-command">
-              <mat-form-field appearance="outline" class="field-name-input">
+              <mat-form-field appearance="outline" class="field-name-input" subscriptSizing="dynamic">
                 <mat-label>Field/Header Name</mat-label>
                 <input matInput [readonly]="isViewMode()" [ngModel]="fieldNameInput()" (ngModelChange)="fieldNameInput.set($event)" maxlength="200" />
               </mat-form-field>
-              <mat-form-field appearance="outline">
+              <mat-form-field appearance="outline" class="field-type-select" subscriptSizing="dynamic">
                 <mat-label>Field Type</mat-label>
                 <mat-select [disabled]="isViewMode()" [ngModel]="selectedFieldType()" (ngModelChange)="selectedFieldType.set($event)">
                   @for (type of fieldTypes; track type) {
@@ -697,8 +697,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mj
 
     .pdf-toolbar {
       justify-content: space-between;
-      min-height: 40px;
-      padding: 4px 10px;
+      min-height: 56px;
+      padding: 8px 10px;
       border-bottom: 1px solid var(--app-grid-border);
     }
 
@@ -706,14 +706,16 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mj
       width: 172px;
     }
 
+    .tool-command .field-type-select {
+      width: 190px;
+    }
+
     .tool-command .field-name-input {
       width: 250px;
     }
 
     .pdf-toolbar mat-form-field {
-      margin-block: -9px -20px;
-      transform: scale(0.88);
-      transform-origin: left center;
+      margin: 0;
     }
 
     .pdf-stage {
@@ -1149,6 +1151,7 @@ export class TemplateMappingWorkspacePage implements OnInit, AfterViewInit {
   readonly saving = signal(false);
   readonly errorMessage = signal('');
   readonly lastMessage = signal('');
+  private messageTimer: ReturnType<typeof setTimeout> | null = null;
 
   private pointerAction: PointerAction | null = null;
   private pdfDocument: PDFDocumentProxy | null = null;
@@ -1736,20 +1739,58 @@ export class TemplateMappingWorkspacePage implements OnInit, AfterViewInit {
     this.validateAll();
     if (this.validationIssues().length) return;
     this.saving.set(true);
-    this.errorMessage.set('');
-    this.lastMessage.set('');
+    this.clearMessages();
     this.mappingApi.saveDraft(this.buildPayload()).pipe(finalize(() => this.saving.set(false))).subscribe({
       next: (result) => {
-        this.lastMessage.set(result.message);
-        this.snackBar.open(result.message, 'Close', { duration: 5000 });
+        this.setLastMessage(result.message);
+        this.snackBar.open(result.message, 'Close', { duration: 4000 });
         this.back();
       },
-      error: (error: Error) => this.errorMessage.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
   back(): void {
     this.router.navigateByUrl('/pdf-coordinate-mapper/template-mapping');
+  }
+
+  private clearMessages(): void {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+      this.messageTimer = null;
+    }
+    this.errorMessage.set('');
+    this.lastMessage.set('');
+  }
+
+  private setErrorMessage(message: string): void {
+    this.errorMessage.set(message);
+    this.lastMessage.set('');
+    this.scheduleMessageClear(message, 'error');
+  }
+
+  private setLastMessage(message: string): void {
+    this.lastMessage.set(message);
+    this.errorMessage.set('');
+    this.scheduleMessageClear(message, 'success');
+  }
+
+  private scheduleMessageClear(message: string, type: 'error' | 'success'): void {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+    }
+
+    this.messageTimer = setTimeout(() => {
+      if (type === 'error' && this.errorMessage() === message) {
+        this.errorMessage.set('');
+      }
+
+      if (type === 'success' && this.lastMessage() === message) {
+        this.lastMessage.set('');
+      }
+
+      this.messageTimer = null;
+    }, 4000);
   }
 
   private loadSelectedTemplatePdf(): void {

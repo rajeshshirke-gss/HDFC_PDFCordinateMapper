@@ -162,6 +162,8 @@ namespace HDFC.PDFCoordinateMapper.Api.Services
                 InputVarchar("p_Is_Digitally_Signed", request.Is_Digitally_Signed),
                 InputVarchar("p_Digital_Signature_Details", request.Digital_Signature_Details),
                 InputVarchar("p_IsActive", request.IsActive),
+                InputVarchar("p_Amc_Code", request.Amc_Code),
+                InputVarchar("p_Amc_Name", request.Amc_Name),
                 InputVarchar("p_UserId", request.CurrentUserId),
                 InputVarchar("p_Remark", request.Remark),
                 new OracleParameter("cur", OracleDbType.RefCursor) { Direction = ParameterDirection.Output },

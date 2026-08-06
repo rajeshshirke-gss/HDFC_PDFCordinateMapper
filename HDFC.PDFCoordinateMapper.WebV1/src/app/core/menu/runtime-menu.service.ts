@@ -105,7 +105,23 @@ function toAngularRoute(url: string): string {
   return knownRoutes.has(route) ? route : '';
 }
 
-const knownRoutes = new Set(['/dashboard', '/administration/users', '/administration/roles', '/administration/role-menu-access', '/administration/common-approval']);
+const knownRoutes = new Set([
+  '/dashboard',
+  '/administration/users',
+  '/administration/roles',
+  '/administration/role-menu-access',
+  '/administration/common-approval',
+  '/pdf-coordinate-mapper/template-master',
+  '/pdf-coordinate-mapper/template-mapping',
+  '/pdf-coordinate-mapper/amc-master',
+  '/pdf-coordinate-mapper/client-master',
+  '/pdf-coordinate-mapper/isin-master',
+  '/pdf-coordinate-mapper/common-approval',
+  '/pdf-coordinate-mapper/master-import',
+  '/pdf-coordinate-mapper/master-import/AMC',
+  '/pdf-coordinate-mapper/master-import/CLIENT',
+  '/pdf-coordinate-mapper/master-import/ISIN'
+]);
 
 function normalizeRoute(url: string): string {
   const route = url.trim();

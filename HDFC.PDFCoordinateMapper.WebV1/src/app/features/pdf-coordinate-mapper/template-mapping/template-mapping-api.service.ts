@@ -63,13 +63,19 @@ function toMappingRecord(row: Record<string, unknown>): TemplateMappingRecord {
     mstColId: pickString(row, ['MST_COL_ID', 'MstColId', 'mstColId']),
     mappingCode: pickString(row, ['MAPPING_CODE', 'MappingCode', 'mappingCode']),
     mappingName: pickString(row, ['MAPPING_NAME', 'MappingName', 'mappingName']),
+    amcName: pickString(row, ['AMC_NAME', 'AmcName', 'amcName']),
     templateId: pickString(row, ['TEMPLATE_ID', 'TemplateId', 'templateId']),
+    templateCode: pickString(row, ['TEMPLATE_CODE', 'TemplateCode', 'templateCode']),
     templateName: pickString(row, ['TEMPLATE_NAME', 'TemplateName', 'templateName']),
     fieldCount: pickString(row, ['FIELD_COUNT', 'FieldCount', 'fieldCount']),
     status: pickString(row, ['STATUS', 'Status', 'status']),
     action: pickString(row, ['ACTION', 'Action', 'action']),
     createdBy: pickString(row, ['CREATEDBY', 'CreatedBy', 'createdBy']),
-    createdDate: pickString(row, ['CREATEDDATE', 'CreatedDate', 'createdDate'])
+    createdDate: pickString(row, ['CREATEDDATE', 'CreatedDate', 'createdDate']),
+    modifiedBy: pickString(row, ['MODIFIEDBY', 'ModifiedBy', 'modifiedBy']),
+    modifiedDate: pickString(row, ['MODIFIEDDATE', 'ModifiedDate', 'modifiedDate']),
+    approvedBy: pickString(row, ['APPROVEDBY', 'ApprovedBy', 'approvedBy']),
+    approvedDate: pickString(row, ['APPROVEDDATE', 'ApprovedDate', 'approvedDate'])
   };
 }
 

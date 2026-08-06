@@ -18,6 +18,7 @@ export class TemplateMasterStore {
   private readonly submittingState = signal(false);
   private readonly errorMessageState = signal('');
   private readonly lastMessageState = signal('');
+  private messageTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly templates = computed(() => this.templatesState());
   readonly approvedTemplates = computed(() => this.approvedTemplatesState());
@@ -56,11 +57,11 @@ export class TemplateMasterStore {
 
     this.api.createTemplate(value, this.currentUser()).pipe(finalize(() => this.submittingState.set(false))).subscribe({
       next: (result) => {
-        this.lastMessageState.set(result.message);
+        this.setLastMessage(result.message);
         this.loadTemplates();
         onSuccess();
       },
-      error: (error: Error) => this.errorMessageState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -70,11 +71,11 @@ export class TemplateMasterStore {
 
     this.api.updateTemplate(record, value, this.currentUser()).pipe(finalize(() => this.submittingState.set(false))).subscribe({
       next: (result) => {
-        this.lastMessageState.set(result.message);
+        this.setLastMessage(result.message);
         this.loadTemplates();
         onSuccess();
       },
-      error: (error: Error) => this.errorMessageState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -84,16 +85,50 @@ export class TemplateMasterStore {
 
     this.api.deleteTemplate(record, this.currentUser()).pipe(finalize(() => this.submittingState.set(false))).subscribe({
       next: (result) => {
-        this.lastMessageState.set(result.message);
+        this.setLastMessage(result.message);
         this.loadTemplates();
       },
-      error: (error: Error) => this.errorMessageState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
   clearMessages(): void {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+      this.messageTimer = null;
+    }
     this.errorMessageState.set('');
     this.lastMessageState.set('');
+  }
+
+  private setErrorMessage(message: string): void {
+    this.errorMessageState.set(message);
+    this.lastMessageState.set('');
+    this.scheduleMessageClear(message, 'error');
+  }
+
+  private setLastMessage(message: string): void {
+    this.lastMessageState.set(message);
+    this.errorMessageState.set('');
+    this.scheduleMessageClear(message, 'success');
+  }
+
+  private scheduleMessageClear(message: string, type: 'error' | 'success'): void {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+    }
+
+    this.messageTimer = setTimeout(() => {
+      if (type === 'error' && this.errorMessageState() === message) {
+        this.errorMessageState.set('');
+      }
+
+      if (type === 'success' && this.lastMessageState() === message) {
+        this.lastMessageState.set('');
+      }
+
+      this.messageTimer = null;
+    }, 4000);
   }
 
   private currentUser(): string {

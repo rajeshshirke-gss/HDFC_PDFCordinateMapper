@@ -16,14 +16,14 @@ export class MfCommonApprovalApiService {
       masterName,
       currentUserId: currentUser
     }).pipe(
-      map((response) => dataSetRows<Record<string, unknown>>(response).map(toApprovalRecord)),
+      map((response) => dataSetRows<Record<string, unknown>>(response).map(toApprovalRecord).filter((record) => !isAmcMaster(record.masterName))),
       catchError((error) => throwError(() => new Error(errorMessage(error, 'Unable to load PDF approvals.'))))
     );
   }
 
   loadMasters(): Observable<string[]> {
     return this.http.get<unknown>(`${API_BASE_URL}/api/MfCommonApproval/GetMasters`).pipe(
-      map((response) => dataSetRows<Record<string, unknown>>(response).map(toMasterName).filter(Boolean)),
+      map((response) => dataSetRows<Record<string, unknown>>(response).map(toMasterName).filter((masterName) => masterName && !isAmcMaster(masterName))),
       catchError((error) => throwError(() => new Error(errorMessage(error, 'Unable to load PDF approval masters.'))))
     );
   }
@@ -64,11 +64,11 @@ export class MfCommonApprovalApiService {
 }
 
 function toApprovalRecord(row: Record<string, unknown>): MfCommonApprovalRecord {
-  const autoId = pickString(row, ['AUTO_ID', 'AutoId', 'autoId', 'AUTOID']);
+  const autoId = pickString(row, ['AUTO_ID', 'CommonApprovalId', 'commonApprovalId', 'AutoId', 'autoId', 'AUTOID']);
   return {
     raw: row,
     autoId,
-    tblAutoId: pickString(row, ['TBL_AUTO_ID', 'TblAutoId', 'tblAutoId'], autoId),
+    tblAutoId: pickString(row, ['TBL_AUTO_ID', 'TableAutoId', 'tableAutoId', 'TblAutoId', 'tblAutoId'], autoId),
     masterName: pickString(row, ['MASTERNAME', 'MasterName', 'masterName']),
     action: pickString(row, ['ACTION', 'Action', 'action']),
     status: pickString(row, ['STATUS', 'Status', 'status']),
@@ -88,7 +88,7 @@ function toDetail(row: Record<string, unknown>, masterName: string): MfCommonApp
 }
 
 function toMasterName(row: Record<string, unknown>): string {
-  return pickString(row, ['MASTERNAME', 'MasterName', 'masterName', 'NAME', 'Name']);
+  return pickString(row, ['MASTERNAME', 'MASTER_NAME', 'MasterName', 'masterName', 'NAME', 'Name']);
 }
 
 function displayFields(row: Record<string, unknown>): string[] {
@@ -105,10 +105,6 @@ function detailFields(row: Record<string, unknown>, masterName: string): Array<{
 }
 
 function detailKeys(masterName: string): string[] {
-  if (masterName === 'AMC Master') {
-    return ['AMC_CODE', 'AMC_NAME', 'AMC_DESCRIPTION', 'ISACTIVE', 'ACTION', 'CREATEDBY', 'CREATEDDATE'];
-  }
-
   if (masterName === 'Template Mapping Master') {
     return [
       'MAPPING_CODE',
@@ -143,6 +139,10 @@ function detailKeys(masterName: string): string[] {
   }
 
   return ['TEMPLATE_CODE', 'TEMPLATE_NAME', 'TEMPLATE_DESCRIPTION', 'ORIGINAL_FILE_NAME', 'PDF_PAGE_COUNT', 'MAPPING_PAGE_NUMBERS', 'PRINT_PAGE_NUMBERS', 'REPEAT_ROWS_PER_PAGE', 'ISACTIVE', 'ACTION', 'CREATEDBY', 'CREATEDDATE'];
+}
+
+function isAmcMaster(masterName: string): boolean {
+  return masterName.trim().toLowerCase() === 'amc master';
 }
 
 function headerFor(key: string): string {

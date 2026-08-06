@@ -29,8 +29,7 @@ namespace HDFC.PDFCoordinateMapper.Api.Services
 
         public DataSet SaveAmcMaster(AmcMasterRequest request)
         {
-            request = request ?? new AmcMasterRequest();
-            return ExecuteAmcMaster(request, request.Flag);
+            return ReadOnlyMessage();
         }
 
         public DataSet GetAmcMaster()
@@ -45,8 +44,7 @@ namespace HDFC.PDFCoordinateMapper.Api.Services
 
         public DataSet DeleteAmcMaster(AmcMasterRequest request)
         {
-            request = request ?? new AmcMasterRequest();
-            return ExecuteAmcMaster(request, "D");
+            return ReadOnlyMessage();
         }
 
         private DataSet ExecuteAmcMaster(AmcMasterRequest request, string flag)
@@ -94,6 +92,18 @@ namespace HDFC.PDFCoordinateMapper.Api.Services
                     ? (object)parsed
                     : DBNull.Value
             };
+        }
+
+        private static DataSet ReadOnlyMessage()
+        {
+            var table = new DataTable();
+            table.Columns.Add("MESSAGE", typeof(string));
+            table.Columns.Add("ERRMSG", typeof(string));
+            table.Rows.Add("AMC Master maintenance is not part of PDF Common Approval.", "AMC Master maintenance is not part of PDF Common Approval.");
+
+            var dataSet = new DataSet();
+            dataSet.Tables.Add(table);
+            return dataSet;
         }
     }
 }

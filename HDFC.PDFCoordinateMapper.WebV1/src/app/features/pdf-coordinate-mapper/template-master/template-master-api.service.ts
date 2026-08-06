@@ -5,6 +5,7 @@ import { Observable, catchError, map, throwError } from 'rxjs';
 import { API_BASE_URL } from '../../../core/api/api.config';
 import { dataSetRows, extractDbMessage, pickString, unwrapApiResponse } from '../../../core/api/dataset.adapter';
 import {
+  TemplateMasterAmcOption,
   TemplateMasterCommandResult,
   TemplateMasterFormValue,
   TemplateMasterListSnapshot,
@@ -23,6 +24,13 @@ export class TemplateMasterApiService {
         approvedTemplates: dataSetRows<Record<string, unknown>>(response, 1).map(toTemplateRecord)
       })),
       catchError((error) => throwError(() => new Error(errorMessage(error, 'Unable to load templates.'))))
+    );
+  }
+
+  getAmcDropdown(): Observable<TemplateMasterAmcOption[]> {
+    return this.http.get<unknown>(`${API_BASE_URL}/api/AmcMaster/GetAmcMaster`).pipe(
+      map((response) => dataSetRows<Record<string, unknown>>(response, 1).map(toAmcOption).filter((option) => option.amcCode)),
+      catchError((error) => throwError(() => new Error(errorMessage(error, 'Unable to load AMC dropdown.'))))
     );
   }
 
@@ -70,10 +78,17 @@ export class TemplateMasterApiService {
 }
 
 function buildPayload(flag: 'INSERT' | 'UPDATE', value: TemplateMasterFormValue, currentUser: string): Record<string, string> {
+  const templateName = value.templateName.trim();
+  const templateCode = value.templateCode?.trim() || templateName;
+  const amcName = value.amcCode.trim();
+
   return {
     flag,
-    template_Code: value.templateCode.trim(),
-    template_Name: value.templateName.trim(),
+    template_Code: templateCode,
+    amc_Code: '',
+    amc_Name: amcName,
+    Amc_Name: amcName,
+    template_Name: templateName,
     template_Description: value.templateDescription.trim(),
     original_File_Name: value.originalFileName.trim(),
     stored_File_Name: value.storedFileName.trim(),
@@ -98,6 +113,8 @@ function toTemplateRecord(row: Record<string, unknown>): TemplateMasterRecord {
     autoId: pickString(row, ['AUTOID', 'AutoId', 'autoId', 'auto_Id']),
     mstColId: pickString(row, ['MST_COL_ID', 'MstColId', 'mstColId']),
     templateCode: pickString(row, ['TEMPLATE_CODE', 'TemplateCode', 'templateCode']),
+    amcCode: pickString(row, ['AMC_CODE', 'AmcCode', 'amcCode']),
+    amcName: pickString(row, ['AMC_NAME', 'AmcName', 'amcName']),
     templateName: pickString(row, ['TEMPLATE_NAME', 'TemplateName', 'templateName']),
     templateDescription: pickString(row, ['TEMPLATE_DESCRIPTION', 'TemplateDescription', 'templateDescription']),
     originalFileName: pickString(row, ['ORIGINAL_FILE_NAME', 'OriginalFileName', 'originalFileName']),
@@ -122,6 +139,14 @@ function toTemplateRecord(row: Record<string, unknown>): TemplateMasterRecord {
     modifiedDate: pickString(row, ['MODIFIEDDATE', 'ModifiedDate', 'modifiedDate']),
     approvedBy: pickString(row, ['APPROVEDBY', 'ApprovedBy', 'approvedBy']),
     approvedDate: pickString(row, ['APPROVEDDATE', 'ApprovedDate', 'approvedDate'])
+  };
+}
+
+function toAmcOption(row: Record<string, unknown>): TemplateMasterAmcOption {
+  return {
+    raw: row,
+    amcCode: pickString(row, ['AMC_CODE', 'AmcCode', 'amcCode']),
+    amcName: pickString(row, ['AMC_NAME', 'AmcName', 'amcName'])
   };
 }
 

@@ -8,7 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 
-import { AmcMasterDialogData, AmcMasterFormValue } from './amc-master.models';
+import { AmcMasterDialogData } from './amc-master.models';
 
 @Component({
   selector: 'app-amc-master-form-dialog',
@@ -61,11 +61,6 @@ import { AmcMasterDialogData, AmcMasterFormValue } from './amc-master.models';
 
     <mat-dialog-actions align="end">
       <button mat-button type="button" (click)="close()">Close</button>
-      @if (data.mode !== 'view') {
-        <button mat-flat-button color="primary" type="button" [disabled]="form.invalid" (click)="submit()">
-          {{ data.mode === 'create' ? 'Submit for Approval' : 'Submit Update for Approval' }}
-        </button>
-      }
     </mat-dialog-actions>
   `,
   styles: [`
@@ -122,11 +117,7 @@ export class AmcMasterFormDialog {
     remark: ['', Validators.maxLength(4000)]
   });
 
-  readonly title = this.data.mode === 'create'
-    ? 'Create AMC'
-    : this.data.mode === 'edit'
-      ? 'Edit AMC'
-      : 'View AMC';
+  readonly title = 'View AMC';
 
   constructor() {
     if (this.data.record) {
@@ -138,19 +129,7 @@ export class AmcMasterFormDialog {
         remark: this.data.record.actionRemark
       });
     }
-
-    if (this.data.mode === 'view') {
-      this.form.disable();
-    }
-  }
-
-  submit(): void {
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      return;
-    }
-
-    this.dialogRef.close(this.form.getRawValue() as AmcMasterFormValue);
+    this.form.disable();
   }
 
   close(): void {

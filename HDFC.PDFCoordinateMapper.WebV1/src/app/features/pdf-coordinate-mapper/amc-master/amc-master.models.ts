@@ -1,5 +1,4 @@
 export type AmcMasterView = 'all' | 'approved';
-export type AmcMasterFormMode = 'create' | 'edit' | 'view';
 
 export interface AmcMasterRecord {
   raw: Record<string, unknown>;
@@ -33,14 +32,6 @@ export interface AmcMasterListSnapshot {
   approvedAmcs: AmcMasterRecord[];
 }
 
-export interface AmcMasterCommandResult {
-  success: boolean;
-  message: string;
-  raw: unknown;
-}
-
 export interface AmcMasterDialogData {
-  mode: AmcMasterFormMode;
   record: AmcMasterRecord | null;
-  submitting: boolean;
 }
