@@ -20,6 +20,7 @@ export class MfCommonApprovalStore {
   private readonly submittingState = signal(false);
   private readonly errorMessageState = signal('');
   private readonly lastMessageState = signal('');
+  private messageTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly pending = computed(() => this.pendingState());
   readonly masters = computed(() => this.mastersState());
@@ -35,7 +36,7 @@ export class MfCommonApprovalStore {
   loadMasters(): void {
     this.api.loadMasters().subscribe({
       next: (masters) => this.mastersState.set(masters),
-      error: (error: Error) => this.errorMessageState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -45,7 +46,7 @@ export class MfCommonApprovalStore {
 
     this.api.loadPending(this.selectedMasterState(), this.currentUser()).pipe(finalize(() => this.loadingState.set(false))).subscribe({
       next: (rows) => this.pendingState.set(rows),
-      error: (error: Error) => this.errorMessageState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -65,7 +66,7 @@ export class MfCommonApprovalStore {
 
     this.api.loadDetails(record, this.currentUser()).pipe(finalize(() => this.detailLoadingState.set(false))).subscribe({
       next: (details) => this.detailsState.set(details),
-      error: (error: Error) => this.errorMessageState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
@@ -82,6 +83,10 @@ export class MfCommonApprovalStore {
   }
 
   clearMessages(): void {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+      this.messageTimer = null;
+    }
     this.errorMessageState.set('');
     this.lastMessageState.set('');
   }
@@ -96,12 +101,42 @@ export class MfCommonApprovalStore {
 
     request.pipe(finalize(() => this.submittingState.set(false))).subscribe({
       next: (result) => {
-        this.lastMessageState.set(result.message);
+        this.setLastMessage(result.message);
         this.loadPending();
         onSuccess();
       },
-      error: (error: Error) => this.errorMessageState.set(error.message)
+      error: (error: Error) => this.setErrorMessage(error.message)
     });
+  }
+
+  private setErrorMessage(message: string): void {
+    this.errorMessageState.set(message);
+    this.lastMessageState.set('');
+    this.scheduleMessageClear(message, 'error');
+  }
+
+  private setLastMessage(message: string): void {
+    this.lastMessageState.set(message);
+    this.errorMessageState.set('');
+    this.scheduleMessageClear(message, 'success');
+  }
+
+  private scheduleMessageClear(message: string, type: 'error' | 'success'): void {
+    if (this.messageTimer) {
+      clearTimeout(this.messageTimer);
+    }
+
+    this.messageTimer = setTimeout(() => {
+      if (type === 'error' && this.errorMessageState() === message) {
+        this.errorMessageState.set('');
+      }
+
+      if (type === 'success' && this.lastMessageState() === message) {
+        this.lastMessageState.set('');
+      }
+
+      this.messageTimer = null;
+    }, 4000);
   }
 
   private currentUser(): string {

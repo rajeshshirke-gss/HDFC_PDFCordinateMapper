@@ -223,6 +223,11 @@ export class TemplateMappingPage implements OnInit {
   };
 
   ngOnInit(): void {
+    const navigationMessage = String(history.state?.['message'] ?? '').trim();
+    if (navigationMessage) {
+      this.setLastMessage(navigationMessage);
+    }
+
     this.loadMappings();
   }
 

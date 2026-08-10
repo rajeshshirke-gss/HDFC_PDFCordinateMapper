@@ -142,11 +142,11 @@ export function extractDbMessage(response: unknown): string {
 
   const row = rows[0];
 
-  // Prefer actual message columns first
+  // Prefer success message columns before ERRMSG, because many DB cursors return ERRMSG = 0 with MESSAGE populated.
   const message =
-    pickString(row, ['ERRMSG', 'ErrMsg', 'errmsg']) ||
     pickString(row, ['MESSAGE', 'Message', 'message']) ||
-    pickString(row, ['MSG', 'Msg', 'msg']);
+    pickString(row, ['MSG', 'Msg', 'msg']) ||
+    pickString(row, ['ERRMSG', 'ErrMsg', 'errmsg']);
 
   return message === '0' || message === '1' ? '' : message;
 }

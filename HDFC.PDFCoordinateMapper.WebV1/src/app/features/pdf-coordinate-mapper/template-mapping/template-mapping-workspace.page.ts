@@ -1744,13 +1744,18 @@ export class TemplateMappingWorkspacePage implements OnInit, AfterViewInit {
       next: (result) => {
         this.setLastMessage(result.message);
         this.snackBar.open(result.message, 'Close', { duration: 4000 });
-        this.back();
+        this.back(result.message);
       },
       error: (error: Error) => this.setErrorMessage(error.message)
     });
   }
 
-  back(): void {
+  back(message = ''): void {
+    if (message) {
+      this.router.navigateByUrl('/pdf-coordinate-mapper/template-mapping', { state: { message } });
+      return;
+    }
+
     this.router.navigateByUrl('/pdf-coordinate-mapper/template-mapping');
   }
 

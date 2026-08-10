@@ -1,8 +1,11 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { AgGridAngular } from 'ag-grid-angular';
@@ -17,12 +20,24 @@ import { MfCommonApprovalStore } from './mf-common-approval.store';
 @Component({
   selector: 'app-mf-common-approval-page',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatDialogModule, MatIconModule, MatSnackBarModule, AgGridAngular],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatDialogModule, MatFormFieldModule, MatIconModule, MatSelectModule, MatSnackBarModule, AgGridAngular],
   template: `
     <section class="approval-page">
       <header class="page-header">
-        <h1>PDF Module Common Approval</h1>
+        <div class="heading-row">
+          <h1>PDF Module Common Approval</h1>
+          <span class="row-count">{{ store.pending().length }} Rows</span>
+        </div>
         <div class="header-actions">
+          <mat-form-field appearance="outline" class="master-select" subscriptSizing="dynamic">
+            <mat-label>Master</mat-label>
+            <mat-select [ngModel]="store.selectedMaster()" (ngModelChange)="store.setSelectedMaster($event)">
+              <mat-option value="">All Masters</mat-option>
+              @for (master of store.masters(); track master) {
+                <mat-option [value]="master">{{ master }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
           <button mat-flat-button color="primary" class="app-primary-button" type="button" (click)="refresh()">
             <mat-icon>refresh</mat-icon>
             Refresh
@@ -81,11 +96,28 @@ import { MfCommonApprovalStore } from './mf-common-approval.store';
       padding: 10px 0 12px;
     }
 
+    .heading-row {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
     h1 {
       margin: 0;
       color: var(--app-heading);
       font-size: 24px;
       font-weight: 700;
+    }
+
+    .row-count {
+      color: var(--app-muted);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .master-select {
+      width: 260px;
     }
 
     .message-strip {
@@ -195,9 +227,10 @@ export class MfCommonApprovalPage implements OnInit {
     floatingFilter: true,
     resizable: true
   };
-  readonly columnDefs = computed<ColDef<MfCommonApprovalRecord>[]>(() => buildColumnDefs(this.store.pending()));
+  readonly columnDefs = computed<ColDef<MfCommonApprovalRecord>[]>(() => buildColumnDefs(this.store.pending(), this.store.selectedMaster()));
 
   ngOnInit(): void {
+    this.store.loadMasters();
     this.store.loadPending();
   }
 
@@ -247,8 +280,9 @@ export class MfCommonApprovalPage implements OnInit {
 
 const hiddenResponseFields = new Set(['commonapprovalid', 'tableautoid', 'autoid', 'autoid1', 'tblautoid']);
 
-function buildColumnDefs(rows: MfCommonApprovalRecord[]): ColDef<MfCommonApprovalRecord>[] {
-  return [actionColumn(), ...orderedResponseKeys(rows).map((key) => ({
+function buildColumnDefs(rows: MfCommonApprovalRecord[], masterName: string): ColDef<MfCommonApprovalRecord>[] {
+  const keys = columnKeysFor(masterName, rows);
+  return [actionColumn(), ...keys.map((key) => ({
     headerName: headerFor(key),
     colId: key,
     minWidth: widthFor(key),
@@ -289,6 +323,44 @@ function actionColumn(): ColDef<MfCommonApprovalRecord> {
       `;
     }
   };
+}
+
+function columnKeysFor(masterName: string, rows: MfCommonApprovalRecord[]): string[] {
+  if (masterName === 'Template Master') {
+    return [
+      'TemplateCode',
+      'TemplateName',
+      'TemplateDescription',
+      'OriginalFileName',
+      'PdfPageCount',
+      'MappingPageNumbers',
+      'PrintPageNumbers',
+      'RepeatRowsPerPage',
+      'IsActive',
+      'Status',
+      'Action',
+      'CreatedBy',
+      'CreatedDate'
+    ];
+  }
+
+  if (masterName === 'Template Mapping Master') {
+    return [
+      'MappingCode',
+      'MappingName',
+      'TemplateCode',
+      'TemplateName',
+      'FieldCount',
+      'CoordinateOrigin',
+      'IsActive',
+      'Status',
+      'Action',
+      'CreatedBy',
+      'CreatedDate'
+    ];
+  }
+
+  return orderedResponseKeys(rows);
 }
 
 function headerFor(key: string): string {
