@@ -19,6 +19,7 @@ namespace HDFC.PDFCoordinateMapper.Api.Services
     public sealed class MfCommonApprovalService : IMfCommonApprovalService
     {
         private const string ApprovalProcedureName = "MF_COMMON_APPROVAL_IUDS";
+        private const string SummaryProcedureName = "MF_GET_COMMON_APPROVAL_SUMMARY";
         private const string DetailProcedureName = "MF_GET_COMMON_APPROVAL_DATA";
         private const string ExcludedAmcMasterName = "AMC Master";
 
@@ -37,8 +38,7 @@ namespace HDFC.PDFCoordinateMapper.Api.Services
                 return EmptyDataSet();
             }
 
-            request.Flag = "S";
-            return RemoveAmcMasterRows(ExecuteApproval(request));
+            return RemoveAmcMasterRows(ExecuteSummary(request));
         }
 
         public DataSet GetMasters()
@@ -138,6 +138,17 @@ namespace HDFC.PDFCoordinateMapper.Api.Services
             };
 
             return db.ExecuteDataSet(ApprovalProcedureName, parameters);
+        }
+
+        private DataSet ExecuteSummary(MfCommonApprovalRequest request)
+        {
+            var parameters = new List<OracleParameter>
+            {
+                InputVarchar("p_MASTER_NAME", request.MasterName),
+                Cursor()
+            };
+
+            return db.ExecuteDataSet(SummaryProcedureName, parameters);
         }
 
         private static bool IsDecisionFlag(string flag)

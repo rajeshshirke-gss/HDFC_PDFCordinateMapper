@@ -216,16 +216,19 @@ function buildColumnDefs(rows: Record<string, unknown>[]): ColDef<Record<string,
     headerName: headerFor(key),
     colId: key,
     minWidth: widthFor(key),
-    valueGetter: ({ data }: ValueGetterParams<Record<string, unknown>>) => formatCellValue(data?.[key])
+    valueGetter: ({ data }: ValueGetterParams<Record<string, unknown>>) => formatCellValue(key, data?.[key])
   }));
 }
+
+const hiddenResponseFields = new Set(['action', 'actionremark', 'fieldname']);
 
 function orderedKeys(rows: Record<string, unknown>[]): string[] {
   const keys: string[] = [];
   const seen = new Set<string>();
   for (const row of rows) {
     for (const key of Object.keys(row)) {
-      if (seen.has(key)) continue;
+      const normalized = normalizeKey(key);
+      if (hiddenResponseFields.has(normalized) || seen.has(key)) continue;
       seen.add(key);
       keys.push(key);
     }
@@ -234,7 +237,15 @@ function orderedKeys(rows: Record<string, unknown>[]): string[] {
 }
 
 function headerFor(key: string): string {
-  return key.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const spaced = key
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return spaced
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function widthFor(key: string): number {
@@ -244,6 +255,58 @@ function widthFor(key: string): number {
   return 140;
 }
 
-function formatCellValue(value: unknown): string {
-  return value === undefined || value === null ? '' : String(value);
+function formatCellValue(key: string, value: unknown): string {
+  if (value === undefined || value === null) return '';
+
+  const normalizedKey = normalizeKey(key);
+  const text = String(value).trim();
+  if (!text) return '';
+
+  if (normalizedKey === 'isactive' || normalizedKey === 'active') {
+    return formatActive(text);
+  }
+
+  if (normalizedKey === 'status' || normalizedKey === 'statusid') {
+    return formatStatus(text);
+  }
+
+  if (/date|time/.test(normalizedKey)) {
+    return formatDateTime(text);
+  }
+
+  return text;
+}
+
+function formatActive(value: string): string {
+  const normalized = value.trim().toUpperCase();
+  if (normalized === 'Y' || normalized === 'YES' || normalized === 'ACTIVE') return 'Yes';
+  if (normalized === 'N' || normalized === 'NO' || normalized === 'INACTIVE') return 'No';
+  return value;
+}
+
+function formatStatus(value: string): string {
+  const normalized = value.trim().toUpperCase();
+  if (normalized === '0') return 'Pending';
+  if (normalized === '1') return 'Approved';
+  if (normalized === '2') return 'Rejected';
+  if (normalized === 'SUCCESS') return 'Success';
+  if (normalized === 'FAILED') return 'Failed';
+  return value;
+}
+
+function formatDateTime(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  const day = parsed.getDate().toString().padStart(2, '0');
+  const month = parsed.toLocaleString('en-US', { month: 'short' });
+  const year = parsed.getFullYear();
+  const hours = parsed.getHours().toString().padStart(2, '0');
+  const minutes = parsed.getMinutes().toString().padStart(2, '0');
+  const seconds = parsed.getSeconds().toString().padStart(2, '0');
+  return `${day} ${month} ${year} ${hours}:${minutes}:${seconds}`;
+}
+
+function normalizeKey(key: string): string {
+  return key.replace(/[^a-z0-9]/gi, '').toLowerCase();
 }
